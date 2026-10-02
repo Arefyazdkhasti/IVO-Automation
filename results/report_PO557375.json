@@ -1,0 +1,27 @@
+{
+  "user": "حاج علی عسگری",
+  "username": "PO557375",
+  "checkedFromDate": "1405/06/01",
+  "executionTimestamp": "2026-10-01T21:19:15.889Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [
+    {
+      "trackingCode": "KD7H91A67",
+      "creationDate": "11:19 1405/7/5",
+      "dischargeDateSet": "1405/07/06",
+      "reportType": "خروجی داخلی (Domestic Exit)",
+      "status": "تایید تخلیه با موفقیت ثبت شد"
+    },
+    {
+      "trackingCode": "KD7EOVX88",
+      "creationDate": "8:46 1405/6/14",
+      "dischargeDateSet": "1405/06/15",
+      "reportType": "خروجی داخلی (Domestic Exit)",
+      "status": "تایید تخلیه با موفقیت ثبت شد"
+    }
+  ],
+  "stats": {
+    "totalDischarged": 2,
+    "totalNoArrival": 0
+  }
+}

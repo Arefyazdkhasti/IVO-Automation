@@ -1,0 +1,34 @@
+{
+  "user": "علی محمد جمیشیدیان",
+  "username": "PO5949",
+  "checkedFromDate": "1405/06/01",
+  "executionTimestamp": "2026-10-01T21:23:11.287Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [
+    {
+      "trackingCode": "KV3XT9719",
+      "creationDate": "1405/07/09",
+      "dischargeDateSet": "1405/07/10",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه با موفقیت ثبت شد"
+    },
+    {
+      "trackingCode": "KV3XR9K70",
+      "creationDate": "1405/07/08",
+      "dischargeDateSet": "1405/07/09",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه با موفقیت ثبت شد"
+    },
+    {
+      "trackingCode": "KV3XR8D29",
+      "creationDate": "1405/07/07",
+      "dischargeDateSet": "1405/07/08",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه با موفقیت ثبت شد"
+    }
+  ],
+  "stats": {
+    "totalDischarged": 3,
+    "totalNoArrival": 0
+  }
+}

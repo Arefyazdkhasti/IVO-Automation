@@ -1,0 +1,49 @@
+{
+  "user": "میرزاده",
+  "username": "po6020",
+  "checkedFromDate": "1405/06/01",
+  "executionTimestamp": "2026-10-01T21:17:29.552Z",
+  "noArrivalRecords": [
+    {
+      "trackingCode": "KV3VVIN01",
+      "creationDate": "1405/06/05",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "عدم وصول"
+    },
+    {
+      "trackingCode": "KV3VU5773",
+      "creationDate": "1405/06/04",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "عدم وصول"
+    },
+    {
+      "trackingCode": "KV3VU4Q82",
+      "creationDate": "1405/06/04",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "عدم وصول"
+    },
+    {
+      "trackingCode": "KV3VU4541",
+      "creationDate": "1405/06/04",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "عدم وصول"
+    },
+    {
+      "trackingCode": "KD7DYIL40",
+      "creationDate": "10:39 1405/6/6",
+      "reportType": "خروجی داخلی (Domestic Exit)",
+      "status": "عدم وصول"
+    },
+    {
+      "trackingCode": "KD7DY7O80",
+      "creationDate": "0:44 1405/6/6",
+      "reportType": "خروجی داخلی (Domestic Exit)",
+      "status": "عدم وصول"
+    }
+  ],
+  "dischargedRecords": [],
+  "stats": {
+    "totalDischarged": 0,
+    "totalNoArrival": 6
+  }
+}

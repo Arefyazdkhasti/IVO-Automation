@@ -1,0 +1,12 @@
+{
+  "user": "شمسی",
+  "username": "PO5937",
+  "checkedFromDate": "1405/06/01",
+  "executionTimestamp": "2026-10-01T21:25:27.471Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [],
+  "stats": {
+    "totalDischarged": 0,
+    "totalNoArrival": 0
+  }
+}
