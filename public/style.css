@@ -1,0 +1,668 @@
+/* Acura Design System Tokens */
+:root {
+  --color-primary: #cc0000;
+  --color-primary-hover: #aa0000;
+  --color-canvas-dark: #0d0d0d;
+  --color-surface-1: #1e1e1e;
+  --color-surface-2: #141414;
+  --color-hairline-dark: #2e2e2e;
+  --color-hairline-mid: #404040;
+  --color-ink-white: #ffffff;
+  --color-ink-white-muted: #b3b3b3;
+  --color-ink-dim: #707070;
+  --color-success: #22c55e;
+  --color-warning: #eab308;
+
+  --font-display: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Vazirmatn', sans-serif;
+  --font-text: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Vazirmatn', sans-serif;
+
+  --rounded-none: 0px;
+  --rounded-sm: 2px;
+  --rounded-md: 4px;
+  --rounded-pill: 100px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-text);
+  background-color: var(--color-canvas-dark);
+  color: var(--color-ink-white);
+  min-height: 100vh;
+  direction: rtl;
+  letter-spacing: -0.2px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+/* Header - Acura Minimal Precision */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.75rem;
+  background-color: var(--color-surface-1);
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  margin-bottom: 1.5rem;
+}
+
+/* Acura Nav Tabs */
+.nav-tabs-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid var(--color-hairline-dark);
+}
+
+.tab-btn {
+  background: transparent;
+  color: var(--color-ink-white-muted);
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  padding: 0.85rem 1.5rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: var(--rounded-none);
+}
+
+.tab-btn:hover {
+  color: var(--color-ink-white);
+}
+
+.tab-btn.active {
+  color: var(--color-ink-white);
+  border-color: var(--color-hairline-dark) var(--color-hairline-dark) transparent var(--color-hairline-dark);
+  border-bottom: 2px solid var(--color-primary);
+  background: var(--color-surface-1);
+}
+
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  padding: 1.25rem;
+}
+
+.stat-card.primary {
+  border-right: 3px solid var(--color-primary);
+}
+
+.stat-card.success {
+  border-right: 3px solid var(--color-success);
+}
+
+.stat-card.warning {
+  border-right: 3px solid var(--color-warning);
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--color-ink-white);
+  letter-spacing: 0.5px;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--color-ink-white-muted);
+  margin-top: 0.35rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.logo-badge {
+  width: 38px;
+  height: 38px;
+  background-color: var(--color-surface-2);
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  color: var(--color-ink-white);
+  border-right: 3px solid var(--color-primary);
+}
+
+.brand-text h1 {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--color-ink-white);
+  text-transform: uppercase;
+}
+
+.brand-text p {
+  font-size: 0.8rem;
+  color: var(--color-ink-white-muted);
+  margin-top: 2px;
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--rounded-none);
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-hairline-dark);
+  color: var(--color-ink-white-muted);
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-ink-dim);
+}
+
+.status-dot.active {
+  background: var(--color-ink-white);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.status-dot.busy {
+  background: var(--color-primary);
+  box-shadow: 0 0 8px rgba(204, 0, 0, 0.8);
+  animation: pulseAcura 1.6s infinite ease-in-out;
+}
+
+@keyframes pulseAcura {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+/* Stepper Bar - Architectural Sharp Track */
+.stepper-card {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.75rem;
+}
+
+.step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  opacity: 0.35;
+  transition: opacity 0.25s ease;
+}
+
+.step-item.active {
+  opacity: 1;
+}
+
+.step-item.completed {
+  opacity: 0.85;
+}
+
+.step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--rounded-none);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-hairline-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--color-ink-white-muted);
+  transition: all 0.2s ease;
+}
+
+.step-item.active .step-number {
+  background: var(--color-canvas-dark);
+  border: 1px solid var(--color-primary);
+  color: var(--color-ink-white);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.step-item.completed .step-number {
+  background: var(--color-surface-2);
+  border-color: var(--color-hairline-mid);
+  color: var(--color-ink-white);
+}
+
+.step-title {
+  font-size: 0.785rem;
+  font-weight: 500;
+  color: var(--color-ink-white);
+  letter-spacing: -0.1px;
+}
+
+/* Grid Layout */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 960px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  .steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.card {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  padding: 1.75rem;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--color-hairline-dark);
+  color: var(--color-ink-white);
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: var(--color-ink-white-muted);
+  letter-spacing: 0.2px;
+}
+
+.form-control, .form-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--rounded-none);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-hairline-dark);
+  color: var(--color-ink-white);
+  font-size: 0.9rem;
+  font-family: var(--font-text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--color-ink-white);
+}
+
+/* User Details Card Component */
+.user-preview {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  padding: 1.15rem;
+  margin-bottom: 1.25rem;
+}
+
+.avatar-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--rounded-none);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--color-ink-white);
+}
+
+.user-info-text .name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-ink-white);
+}
+
+.user-info-text .username {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  color: var(--color-ink-dim);
+  letter-spacing: 0.5px;
+}
+
+/* Action Buttons - Acura Voltage Pill & Sharp Secondary */
+.actions-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+  font-family: var(--font-text);
+  letter-spacing: 0.5px;
+}
+
+/* Acura Primary CTA: Performance Red Pill */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-ink-white);
+  border: none;
+  border-radius: var(--rounded-pill);
+  padding: 0.85rem 2rem;
+  flex: 2;
+  box-shadow: 0 4px 14px rgba(204, 0, 0, 0.35);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+/* Acura Secondary CTA: Sharp 0px Border */
+.btn-danger {
+  background-color: transparent;
+  color: var(--color-ink-white-muted);
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  padding: 0.85rem 1.5rem;
+  flex: 1;
+}
+
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--color-ink-white);
+  color: var(--color-ink-white);
+}
+
+.btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.785rem;
+  border-radius: var(--rounded-none);
+}
+
+/* Tracking Codes List */
+.codes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--rounded-none);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.badge-cyan {
+  background: var(--color-surface-2);
+  color: var(--color-ink-white);
+  border-color: var(--color-hairline-dark);
+}
+
+.badge-emerald {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--color-success);
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.badge-rose {
+  background: rgba(204, 0, 0, 0.12);
+  color: #ff4d4d;
+  border-color: rgba(204, 0, 0, 0.25);
+}
+
+.badge-gray {
+  background: var(--color-surface-2);
+  color: var(--color-ink-dim);
+  border-color: var(--color-hairline-dark);
+}
+
+.codes-list-container {
+  max-height: 310px;
+  overflow-y: auto;
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  background: var(--color-surface-2);
+}
+
+.code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--color-hairline-dark);
+  font-size: 0.85rem;
+}
+
+.code-row:last-child {
+  border-bottom: none;
+}
+
+.code-row.active {
+  background: #191919;
+  border-right: 2px solid var(--color-primary);
+}
+
+.code-row.success {
+  background: rgba(34, 197, 94, 0.08);
+  border-right: 2px solid var(--color-success);
+}
+
+.code-row.failed {
+  background: rgba(204, 0, 0, 0.05);
+}
+
+/* Console Logs Window */
+.terminal-card {
+  margin-bottom: 2rem;
+}
+
+.terminal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.terminal-window {
+  background: #080808;
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  height: 250px;
+  overflow-y: auto;
+  padding: 1rem;
+  font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+  font-size: 0.825rem;
+  line-height: 1.6;
+}
+
+.log-line {
+  margin-bottom: 0.25rem;
+  display: flex;
+  gap: 0.6rem;
+}
+
+.log-time {
+  color: var(--color-ink-dim);
+  user-select: none;
+}
+
+.log-info { color: #cccccc; }
+.log-success { color: var(--color-ink-white); font-weight: 600; border-right: 2px solid var(--color-success); padding-right: 4px; }
+.log-warning { color: #d4d4d4; font-style: italic; }
+.log-error { color: #ff5555; }
+
+/* Captcha & Edit Modals */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal-content {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  width: 90%;
+  max-width: 440px;
+  padding: 2.25rem;
+  text-align: center;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8);
+}
+
+.captcha-img-box {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  padding: 0.75rem;
+  margin: 1.25rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+}
+
+.captcha-img-box img {
+  border-radius: var(--rounded-none);
+  max-width: 100%;
+}
+
+.captcha-input {
+  font-size: 1.4rem !important;
+  text-align: center;
+  letter-spacing: 6px;
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+
+/* Minimalist Discharge Report Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.data-table th {
+  background: var(--color-surface-2);
+  color: var(--color-ink-white-muted);
+  padding: 0.75rem 1rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  border-bottom: 1px solid var(--color-hairline-dark);
+}
+
+.data-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-hairline-dark);
+  color: var(--color-ink-white);
+}
+
+.data-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Minimal Scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-canvas-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-hairline-dark);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-hairline-mid);
+}
