@@ -39,9 +39,9 @@ body {
 }
 
 .container {
-  max-width: 1240px;
+  max-width: 1560px;
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: 1.5rem 1.5rem;
 }
 
 /* Header - Acura Minimal Precision */
@@ -56,38 +56,169 @@ header {
   margin-bottom: 1.5rem;
 }
 
-/* Acura Nav Tabs */
-.nav-tabs-wrapper {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.75rem;
-  border-bottom: 1px solid var(--color-hairline-dark);
+/* App Layout Grid: Right Rail (320px) + Main Content (1fr) in RTL */
+.app-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1.5rem;
+  align-items: start;
 }
 
-.tab-btn {
-  background: transparent;
-  color: var(--color-ink-white-muted);
-  border: 1px solid transparent;
-  border-bottom: 2px solid transparent;
-  padding: 0.85rem 1.5rem;
+@media (max-width: 1100px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.app-main-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Navigation Rail Styles - Ultra Clean & Simple */
+.nav-rail {
+  position: sticky;
+  top: 1rem;
+  z-index: 100;
+}
+
+.rail-card {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline-dark);
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.rail-section-header {
   font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-size: 0.775rem;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  color: var(--color-ink-dim);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 0.35rem 0.5rem 0.45rem;
+  border-bottom: 1px solid var(--color-hairline-dark);
+  margin-bottom: 0.2rem;
+}
+
+.rail-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-hairline-dark);
+  border-right: 4px solid transparent;
+  padding: 0.85rem 0.95rem;
+  color: var(--color-ink-white-muted);
   cursor: pointer;
-  transition: all 0.2s ease;
+  text-align: right;
+  transition: all 0.15s ease;
+  font-family: var(--font-text);
   border-radius: var(--rounded-none);
 }
 
-.tab-btn:hover {
+.rail-menu-item:hover {
+  color: var(--color-ink-white);
+  background: #1c1c1c;
+  border-color: var(--color-hairline-mid);
+}
+
+.rail-menu-item.active {
+  background: #201313;
+  border-color: rgba(204, 0, 0, 0.4);
+  border-right: 4px solid var(--color-primary);
   color: var(--color-ink-white);
 }
 
-.tab-btn.active {
-  color: var(--color-ink-white);
-  border-color: var(--color-hairline-dark) var(--color-hairline-dark) transparent var(--color-hairline-dark);
-  border-bottom: 2px solid var(--color-primary);
+.rail-menu-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.rail-menu-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.rail-menu-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: inherit;
+}
+
+.rail-menu-desc {
+  font-size: 0.72rem;
+  color: var(--color-ink-dim);
+}
+
+.rail-menu-item.active .rail-menu-desc {
+  color: var(--color-ink-white-muted);
+}
+
+.rail-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
   background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline-dark);
+  color: var(--color-ink-white-muted);
+  border-radius: var(--rounded-none);
+  font-family: monospace;
+  margin-right: auto;
+  flex-shrink: 0;
+}
+
+.rail-menu-item.active .rail-badge {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.rail-badge.badge-primary {
+  background: rgba(204, 0, 0, 0.15);
+  border-color: rgba(204, 0, 0, 0.35);
+  color: #ff8888;
+}
+
+.rail-menu-item.active .rail-badge.badge-primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* Admin Pane Header inside main content */
+.admin-pane-header {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline-dark);
+  padding: 1.15rem 1.5rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-pane-title h2 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--color-ink-white);
+}
+
+.admin-pane-title p {
+  font-size: 0.8rem;
+  color: var(--color-ink-white-muted);
+  margin-top: 0.25rem;
 }
 
 .tab-pane {
@@ -666,3 +797,244 @@ header {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-hairline-mid);
 }
+
+/* ==========================================================
+   Admin Management Panel Styles (Acura Design System)
+   ========================================================== */
+
+.admin-subtabs {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  background: var(--color-surface-1);
+  padding: 0.5rem;
+  border: 1px solid var(--color-hairline-dark);
+  border-radius: var(--rounded-none);
+  flex-wrap: wrap;
+}
+
+.admin-subtab-btn {
+  background: transparent;
+  color: var(--color-ink-white-muted);
+  border: 1px solid transparent;
+  padding: 0.65rem 1.25rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  transition: all 0.2s ease;
+  border-radius: var(--rounded-none);
+}
+
+.admin-subtab-btn:hover {
+  color: var(--color-ink-white);
+  background: var(--color-surface-2);
+}
+
+.admin-subtab-btn.active {
+  background: var(--color-surface-2);
+  color: var(--color-ink-white);
+  border: 1px solid var(--color-hairline-mid);
+  border-right: 3px solid var(--color-primary);
+}
+
+.badge {
+  background: var(--color-hairline-dark);
+  color: var(--color-ink-white);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--rounded-pill);
+  font-size: 0.75rem;
+  font-family: var(--font-display);
+}
+
+.admin-subtab-btn.active .badge {
+  background: var(--color-primary);
+  color: var(--color-ink-white);
+}
+
+.admin-section {
+  display: none;
+  animation: fadeIn 0.2s ease;
+}
+
+.admin-section.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.admin-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.admin-search-box {
+  flex: 1;
+  max-width: 480px;
+}
+
+/* Action Buttons in Tables */
+.btn-action-group {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.btn-action {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  border-radius: var(--rounded-none);
+  border: 1px solid var(--color-hairline-dark);
+  background: var(--color-surface-2);
+  color: var(--color-ink-white-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.btn-action:hover {
+  color: var(--color-ink-white);
+  border-color: var(--color-hairline-mid);
+}
+
+.btn-action.btn-edit:hover {
+  background: #1e3a5f;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.btn-action.btn-delete:hover {
+  background: rgba(204, 0, 0, 0.2);
+  border-color: var(--color-primary);
+  color: #ff6666;
+}
+
+.btn-action.btn-copy:hover {
+  background: var(--color-hairline-dark);
+  color: #ffffff;
+}
+
+/* Tracking Codes Grid */
+.codes-chips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.65rem;
+  max-height: 480px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-hairline-dark);
+}
+
+.code-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline-dark);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--rounded-none);
+  font-family: monospace;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  direction: ltr;
+}
+
+.code-chip:hover {
+  border-color: var(--color-hairline-mid);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.code-chip.success-chip {
+  border-color: var(--color-success);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.code-chip-text {
+  font-weight: 600;
+  color: var(--color-ink-white);
+  letter-spacing: 0.5px;
+}
+
+.code-chip-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.code-chip-btn {
+  background: none;
+  border: none;
+  color: var(--color-ink-dim);
+  cursor: pointer;
+  padding: 2px;
+  font-size: 0.8rem;
+  transition: color 0.15s ease;
+}
+
+.code-chip-btn:hover {
+  color: var(--color-ink-white);
+}
+
+.code-chip-btn.delete-btn:hover {
+  color: var(--color-primary);
+}
+
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 10000;
+}
+
+.toast {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-hairline-dark);
+  border-right: 4px solid var(--color-primary);
+  color: var(--color-ink-white);
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--rounded-none);
+  font-size: 0.85rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  min-width: 260px;
+  max-width: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  animation: toastSlideIn 0.25s ease-out;
+}
+
+.toast.toast-success {
+  border-right-color: var(--color-success);
+}
+
+.toast.toast-error {
+  border-right-color: var(--color-primary);
+}
+
+@keyframes toastSlideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
