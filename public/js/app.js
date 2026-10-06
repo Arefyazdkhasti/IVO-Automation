@@ -356,6 +356,8 @@ const quantityInput = document.getElementById('quantityInput');
 const showBrowserCheck = document.getElementById('showBrowserCheck');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
+const candidateCodesInput = document.getElementById('candidateCodesInput');
+const checkPaymentLinksStandaloneBtn = document.getElementById('checkPaymentLinksStandaloneBtn');
 
 const systemDot = document.getElementById('systemDot');
 const systemStatusText = document.getElementById('systemStatusText');
@@ -403,6 +405,8 @@ let dischargeRecords = []; // array of records being tracked
 let sessionPermitsList = []; // array of permits issued in session
 let currentDischargeExportData = null; // currently active discharge data
 let lastSuccessfulCodeData = null; // last successful code data
+let permitsQueue = []; // array of queued permits for batch execution
+let paymentLinksList = []; // array of scraped payment links
 
 // App data loading guard
 let isInitialDataLoaded = false;
@@ -414,6 +418,8 @@ async function loadInitialAppData(force = false) {
   await loadCodes();
   await loadPastReports();
   await loadSessionPermits();
+  await loadPaymentLinks();
+  renderPermitsQueue();
   setupEventSource();
 }
 
@@ -784,6 +790,37 @@ function setupEventSource() {
     }
   });
 
+  evtSource.addEventListener('permit_cooldown_tick', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      handleCooldownTick(data);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  evtSource.addEventListener('payment_links_ready', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (Array.isArray(data.paymentLinks)) {
+        paymentLinksList = data.paymentLinks;
+        renderPaymentLinksTable();
+        showToast(`تعداد ${paymentLinksList.length} لینک پرداخت دریافت شد 💳`, 'success');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  evtSource.addEventListener('closure_confirmation_required', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      openClosureModal(data.validCode);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
   evtSource.onerror = (err) => {
     console.warn('SSE connection issue, reconnecting...', err);
   };
@@ -817,30 +854,69 @@ function handleStatusChange(data) {
     updateStepper(3);
     systemDot.className = 'status-dot busy';
     systemStatusText.textContent = 'در حال بررسی کدهای رهگیری و حمل به کشتارگاه...';
+  } else if (status === 'cooldown') {
+    closeCaptchaModal();
+    systemDot.className = 'status-dot busy';
+    systemStatusText.textContent = `در حال انتظار ۲ دقیقه‌ای بین ثبت مجوزها (${data.remainingSeconds || 0} ثانیه)...`;
   } else if (status === 'filling_details') {
     closeCaptchaModal();
+    const cooldownBanner = document.getElementById('cooldownBanner');
+    if (cooldownBanner) cooldownBanner.style.display = 'none';
     updateStepper(4);
     systemDot.className = 'status-dot busy';
-    systemStatusText.textContent = 'در حال تکمیل مشخصات نژاد، کالا و فراخوانی کشتارگاه مقصد...';
+    const pInfo = data.permitIndex ? ` (${data.permitIndex} از ${data.totalPermits})` : '';
+    systemStatusText.textContent = `در حال تکمیل مشخصات نژاد، کالا و فراخوانی کشتارگاه مقصد${pInfo}...`;
+  } else if (status === 'fetching_payment_links') {
+    closeCaptchaModal();
+    const cooldownBanner = document.getElementById('cooldownBanner');
+    if (cooldownBanner) cooldownBanner.style.display = 'none';
+    systemDot.className = 'status-dot busy';
+    systemStatusText.textContent = 'در حال استخراج لینک‌های پرداخت از گزارش آمار...';
+  } else if (status === 'navigating_closure') {
+    closeCaptchaModal();
+    const cooldownBanner = document.getElementById('cooldownBanner');
+    if (cooldownBanner) cooldownBanner.style.display = 'none';
+    systemDot.className = 'status-dot busy';
+    systemStatusText.textContent = 'در حال انتقال به صفحه اعلام خاتمه بارگیری...';
+  } else if (status === 'waiting_closure_confirmation') {
+    closeCaptchaModal();
+    const cooldownBanner = document.getElementById('cooldownBanner');
+    if (cooldownBanner) cooldownBanner.style.display = 'none';
+    systemDot.className = 'status-dot busy';
+    systemStatusText.textContent = 'در انتظار تأیید اعلام خاتمه صدور گواهی و بارگیری...';
+    openClosureModal(data.validCode);
   } else if (status === 'discharging') {
     closeCaptchaModal();
     systemDot.className = 'status-dot busy';
     systemStatusText.textContent = `در حال ثبت تایید تخلیه (${data.total || ''} مورد)...`;
   } else if (status === 'success') {
     closeCaptchaModal();
+    closeClosureModal();
+    const cooldownBanner = document.getElementById('cooldownBanner');
+    if (cooldownBanner) cooldownBanner.style.display = 'none';
     if (service === 'permit') updateStepper(5);
     updateUIState(false, service);
     systemDot.className = 'status-dot active';
     systemStatusText.textContent = 'عملیات با موفقیت کامل انجام شد ✓';
     loadPastReports(); // refresh reports list
+    if (Array.isArray(data.paymentLinks)) {
+      paymentLinksList = data.paymentLinks;
+      renderPaymentLinksTable();
+    }
     alert(`🎉 ${data.message || 'عملیات با موفقیت کامل انجام شد!'}`);
   } else if (status === 'failed') {
     closeCaptchaModal();
+    closeClosureModal();
+    const cooldownBanner = document.getElementById('cooldownBanner');
+    if (cooldownBanner) cooldownBanner.style.display = 'none';
     updateUIState(false, service);
     systemDot.className = 'status-dot';
     systemStatusText.textContent = 'متوقف شده / خطا';
   } else if (status === 'idle') {
     closeCaptchaModal();
+    closeClosureModal();
+    const cooldownBanner = document.getElementById('cooldownBanner');
+    if (cooldownBanner) cooldownBanner.style.display = 'none';
     updateUIState(false, service);
     systemDot.className = 'status-dot';
     systemStatusText.textContent = 'آماده به کار';
@@ -860,6 +936,12 @@ function updateUIState(running, service) {
     quantityInput.disabled = running;
     breedSelect.disabled = running;
     hatchInput.disabled = running;
+    if (candidateCodesInput) candidateCodesInput.disabled = running;
+    if (checkPaymentLinksStandaloneBtn) checkPaymentLinksStandaloneBtn.disabled = running;
+    const addQueueBtn = document.getElementById('addPermitToQueueBtn');
+    const clearQBtn = document.getElementById('clearQueueBtn');
+    if (addQueueBtn) addQueueBtn.disabled = running;
+    if (clearQBtn) clearQBtn.disabled = running;
   }
 }
 
@@ -926,7 +1008,135 @@ function setupListeners() {
     updateUserPreview(user);
   });
 
-  // Permit Start Button
+  // Permit Queue Listeners
+  const addPermitToQueueBtn = document.getElementById('addPermitToQueueBtn');
+  if (addPermitToQueueBtn) {
+    addPermitToQueueBtn.addEventListener('click', () => {
+      const selectedSlaughterCode = slaughterSelect.value;
+      const selectedSlaughterName = slaughterSelect.options[slaughterSelect.selectedIndex]?.dataset.name || slaughterSelect.options[slaughterSelect.selectedIndex]?.text || '';
+      if (!selectedSlaughterCode) {
+        alert('لطفاً ابتدا کشتارگاه مقصد را از کادر بالا انتخاب کنید.');
+        return;
+      }
+      const quantity = quantityInput.value.trim() || '2000';
+      const breed = breedSelect.value || 'راس';
+
+      permitsQueue.push({
+        slaughterhouseCode: selectedSlaughterCode,
+        slaughterhouseName: selectedSlaughterName,
+        quantity: quantity,
+        breed: breed,
+      });
+
+      renderPermitsQueue();
+      showToast(`کشتارگاه ${selectedSlaughterName} (${quantity} قطعه) به لیست افزوده شد.`, 'info');
+    });
+  }
+
+  const clearQueueBtn = document.getElementById('clearQueueBtn');
+  if (clearQueueBtn) {
+    clearQueueBtn.addEventListener('click', () => {
+      permitsQueue = [];
+      renderPermitsQueue();
+      showToast('لیست مجوزها پاک شد.', 'info');
+    });
+  }
+
+  // Cooldown Skip Button
+  const skipCooldownBtn = document.getElementById('skipCooldownBtn');
+  if (skipCooldownBtn) {
+    skipCooldownBtn.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/permits/skip-cooldown', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('تایمر با موفقیت رد شد.', 'success');
+        } else {
+          showToast(data.error || 'خطا در رد کردن تایمر', 'warning');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
+
+  // Closure Confirmation Modal Buttons
+  const confirmClosureBtn = document.getElementById('confirmClosureBtn');
+  if (confirmClosureBtn) {
+    confirmClosureBtn.addEventListener('click', () => {
+      respondClosureConfirmation(true);
+    });
+  }
+
+  const cancelClosureBtn = document.getElementById('cancelClosureBtn');
+  if (cancelClosureBtn) {
+    cancelClosureBtn.addEventListener('click', () => {
+      respondClosureConfirmation(false);
+    });
+  }
+
+  // Payment Links Actions
+  const copyAllPaymentLinksBtn = document.getElementById('copyAllPaymentLinksBtn');
+  if (copyAllPaymentLinksBtn) {
+    copyAllPaymentLinksBtn.addEventListener('click', () => {
+      copyAllPaymentLinks();
+    });
+  }
+
+  const clearPaymentLinksBtn = document.getElementById('clearPaymentLinksBtn');
+  if (clearPaymentLinksBtn) {
+    clearPaymentLinksBtn.addEventListener('click', async () => {
+      if (!confirm('آیا از پاک‌سازی لیست لینک‌های پرداخت اطمینان دارید؟')) return;
+      try {
+        const res = await fetch('/api/permits/payment-links', { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          paymentLinksList = [];
+          renderPaymentLinksTable();
+          showToast('لیست لینک‌های پرداخت پاک شد.', 'info');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
+
+  // Standalone Check Payment Links Button (Without issuing new permits)
+  if (checkPaymentLinksStandaloneBtn) {
+    checkPaymentLinksStandaloneBtn.addEventListener('click', async () => {
+      const selectedUsername = userSelect.value;
+      if (!selectedUsername) {
+        alert('لطفاً ابتدا مرغدار مورد نظر را از کادر بالا انتخاب فرمایید.');
+        return;
+      }
+
+      const headless = !showBrowserCheck.checked;
+
+      try {
+        checkPaymentLinksStandaloneBtn.disabled = true;
+        showToast('در حال استعلام مستقیم لینک‌های پرداخت امروز از سامانه دامپزشکی...', 'info');
+
+        const res = await fetch('/api/permits/check-payment-links', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: selectedUsername,
+            headless: headless,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          alert('خطا در استعلام لینک‌های پرداخت: ' + data.error);
+          checkPaymentLinksStandaloneBtn.disabled = false;
+        }
+      } catch (err) {
+        alert('خطا در ارتباط با سرور: ' + err.message);
+        checkPaymentLinksStandaloneBtn.disabled = false;
+      }
+    });
+  }
+
+  // Permit Start Button (Single or Multi-Permit Queue)
   startBtn.addEventListener('click', async () => {
     const selectedUsername = userSelect.value;
     if (!selectedUsername) {
@@ -934,16 +1144,34 @@ function setupListeners() {
       return;
     }
 
-    const selectedSlaughterCode = slaughterSelect.value;
-    const selectedSlaughterName = slaughterSelect.options[slaughterSelect.selectedIndex]?.dataset.name || '';
-    if (!selectedSlaughterCode) {
-      alert('لطفاً کشتارگاه مقصد را انتخاب کنید.');
-      return;
+    let permitsToSend = [];
+    if (permitsQueue.length > 0) {
+      permitsToSend = [...permitsQueue];
+    } else {
+      const selectedSlaughterCode = slaughterSelect.value;
+      const selectedSlaughterName = slaughterSelect.options[slaughterSelect.selectedIndex]?.dataset.name || slaughterSelect.options[slaughterSelect.selectedIndex]?.text || '';
+      if (!selectedSlaughterCode) {
+        alert('لطفاً کشتارگاه مقصد را انتخاب کنید یا از لیست مجوزها استفاده نمایید.');
+        return;
+      }
+      const quantity = quantityInput.value.trim() || '2000';
+      const breed = breedSelect.value || 'راس';
+      permitsToSend = [{
+        slaughterhouseCode: selectedSlaughterCode,
+        slaughterhouseName: selectedSlaughterName,
+        quantity: quantity,
+        breed: breed,
+      }];
     }
 
-    const quantity = quantityInput.value.trim() || '2000';
     const breed = breedSelect.value;
     const hatchingPermitCode = hatchInput.value.trim();
+
+    // Parse Candidate Tracking Codes (Priority Codes)
+    const candidateCodesRaw = candidateCodesInput ? candidateCodesInput.value.trim() : '';
+    const candidateCodes = candidateCodesRaw
+      ? candidateCodesRaw.split(/[\s,،]+/).map((c) => c.trim()).filter(Boolean)
+      : [];
 
     codeStatusMap = {};
     renderCodesList();
@@ -958,9 +1186,8 @@ function setupListeners() {
         body: JSON.stringify({
           username: selectedUsername,
           headless: headless,
-          slaughterhouseCode: selectedSlaughterCode,
-          slaughterhouseName: selectedSlaughterName,
-          quantity: quantity,
+          permits: permitsToSend,
+          candidateCodes: candidateCodes,
           breed: breed,
           hatchingPermitCode: hatchingPermitCode,
         }),
@@ -1940,6 +2167,195 @@ function renderSessionPermitsTable() {
       <td style="text-align: center;"><span class="badge" style="background: #15803d; color: #fff;">صادر شد ✓</span></td>
     `;
     tbody.appendChild(tr);
+  });
+}
+
+// Render Permits Queue
+function renderPermitsQueue() {
+  const container = document.getElementById('queueItemsList');
+  const emptyState = document.getElementById('queueEmptyState');
+  const badge = document.getElementById('queueSummaryBadge');
+  const clearBtn = document.getElementById('clearQueueBtn');
+  if (!container) return;
+
+  if (permitsQueue.length === 0) {
+    if (emptyState) emptyState.style.display = 'block';
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (badge) badge.textContent = '۰ مجوز (تک‌مجوز)';
+    container.innerHTML = '';
+    return;
+  }
+
+  if (emptyState) emptyState.style.display = 'none';
+  if (clearBtn) clearBtn.style.display = 'inline-block';
+  const totalPieces = permitsQueue.reduce((sum, item) => sum + (parseInt(item.quantity, 10) || 0), 0);
+  if (badge) badge.textContent = `${permitsQueue.length} مجوز در صف (${totalPieces.toLocaleString('fa-IR')} قطعه)`;
+
+  container.innerHTML = '';
+  permitsQueue.forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; background: var(--color-surface-2); padding: 0.4rem 0.65rem; border-radius: 4px; border: 1px solid var(--color-hairline-dark); font-size: 0.8rem;';
+    row.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+        <span style="font-weight: bold; color: var(--color-primary); font-family: monospace;">#${idx + 1}</span>
+        <span style="color: var(--color-ink-white); font-weight: 500;">${item.slaughterhouseName || item.slaughterhouseCode}</span>
+        <span style="color: #10b981; font-family: monospace;">(${Number(item.quantity).toLocaleString('fa-IR')} قطعه)</span>
+        <span style="color: var(--color-ink-dim); font-size: 0.72rem;">[نژاد: ${item.breed || 'راس'}]</span>
+      </div>
+      <button type="button" class="btn-remove-queue" data-index="${idx}" style="background: none; border: none; color: #ff6666; cursor: pointer; font-size: 0.95rem; padding: 0 0.3rem;" title="حذف از صف">
+        ✕
+      </button>
+    `;
+    container.appendChild(row);
+  });
+
+  container.querySelectorAll('.btn-remove-queue').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.index, 10);
+      permitsQueue.splice(idx, 1);
+      renderPermitsQueue();
+    });
+  });
+}
+
+// Cooldown Tick Handler
+function handleCooldownTick(data) {
+  const banner = document.getElementById('cooldownBanner');
+  const timerBadge = document.getElementById('cooldownTimerBadge');
+  const detailsText = document.getElementById('cooldownDetailsText');
+  if (!banner || !timerBadge) return;
+
+  banner.style.display = 'block';
+  const rem = data.remainingSeconds || 0;
+  const m = String(Math.floor(rem / 60)).padStart(2, '0');
+  const s = String(rem % 60).padStart(2, '0');
+  timerBadge.textContent = `${m}:${s}`;
+
+  const nextItemName = data.nextItem ? (data.nextItem.slaughterhouseName || 'کشتارگاه بعدی') : '';
+  const nextItemQty = data.nextItem ? ` (${Number(data.nextItem.quantity).toLocaleString('fa-IR')} قطعه)` : '';
+  if (detailsText) {
+    detailsText.textContent = `زمان باقی‌مانده: ${rem} ثانیه | مجوز بعدی (${data.nextPermitIndex || 2} از ${data.totalPermits || 2}): ${nextItemName}${nextItemQty}`;
+  }
+}
+
+// Closure Modal Handlers
+function openClosureModal(code) {
+  const modal = document.getElementById('closureModal');
+  const codeEl = document.getElementById('closureModalCode');
+  if (codeEl) codeEl.textContent = code || '-';
+  if (modal) modal.classList.add('active');
+}
+
+function closeClosureModal() {
+  const modal = document.getElementById('closureModal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function respondClosureConfirmation(confirm) {
+  closeClosureModal();
+  try {
+    const res = await fetch('/api/permits/confirm-closure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(confirm ? 'تأیید اعلام خاتمه بارگیری به سامانه ارسال شد.' : 'انصراف از اعلام خاتمه ثبت شد.', 'info');
+    }
+  } catch (err) {
+    console.error('Error submitting closure confirmation:', err);
+  }
+}
+
+// Load and Render Payment Links
+async function loadPaymentLinks() {
+  try {
+    const res = await fetch('/api/permits/payment-links');
+    const data = await res.json();
+    if (data.success && Array.isArray(data.paymentLinks)) {
+      paymentLinksList = data.paymentLinks;
+      renderPaymentLinksTable();
+    }
+  } catch (err) {
+    console.error('Error loading payment links:', err);
+  }
+}
+
+function renderPaymentLinksTable() {
+  const tbody = document.getElementById('paymentLinksTableBody');
+  const badge = document.getElementById('paymentLinksBadge');
+  if (!tbody) return;
+
+  if (badge) {
+    badge.textContent = `${paymentLinksList.length} لینک`;
+  }
+
+  if (paymentLinksList.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align: center; color: var(--color-ink-dim); padding: 1.5rem;">
+          پس از ثبت گواهی‌ها، لینک‌های پرداخت معتبر امروز به صورت خودکار از بخش مشاهده آمار استخراج شده و اینجا نمایش داده می‌شوند.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = '';
+  paymentLinksList.forEach((item, idx) => {
+    const tr = document.createElement('tr');
+    const targetUrl = item.gatewayUrl || item.paymentUrl;
+    tr.innerHTML = `
+      <td style="font-size: 0.8rem; color: var(--color-ink-dim); text-align: center;">${idx + 1}</td>
+      <td style="font-weight: 600;">${item.slaughterhouse || '-'}</td>
+      <td style="text-align: center;">${item.quantity ? Number(item.quantity).toLocaleString('fa-IR') : '-'}</td>
+      <td style="font-family: monospace; color: #10b981; font-weight: bold; text-align: center;">${item.amount ? Number(item.amount).toLocaleString('fa-IR') : '-'}</td>
+      <td style="font-family: monospace; text-align: center;">${item.carTrackingCode || '-'}</td>
+      <td style="font-family: monospace; font-weight: bold; color: var(--color-primary); text-align: center;">${item.trackingCode || '-'}</td>
+      <td style="font-size: 0.8rem; color: var(--color-ink-white-muted); text-align: center;">${item.date || '-'}</td>
+      <td style="text-align: center; white-space: nowrap;">
+        <div style="display: flex; gap: 0.4rem; justify-content: center; align-items: center;">
+          <button type="button" class="btn btn-sm btn-copy-pay" data-url="${targetUrl}" style="background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); color: var(--color-ink-white); padding: 0.25rem 0.5rem; font-size: 0.75rem; cursor: pointer;" title="کپی لینک پرداخت">
+            📋 کپی
+          </button>
+          <a href="${targetUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-sm" style="background: #16a34a; color: #fff; padding: 0.25rem 0.6rem; font-size: 0.75rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.25rem;" title="انتقال مستقیم به درگاه پرداخت">
+            💳 پرداخت
+          </a>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('.btn-copy-pay').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const url = btn.dataset.url;
+      if (url) {
+        navigator.clipboard.writeText(url).then(() => {
+          showToast('لینک پرداخت با موفقیت در کلیپ‌بورد کپی شد ✓', 'success');
+        }).catch(() => {
+          prompt('لینک پرداخت:', url);
+        });
+      }
+    });
+  });
+}
+
+function copyAllPaymentLinks() {
+  if (paymentLinksList.length === 0) {
+    showToast('هیچ لینک پرداختی جهت کپی وجود ندارد.', 'warning');
+    return;
+  }
+  const textLines = paymentLinksList.map((item, idx) => {
+    const url = item.gatewayUrl || item.paymentUrl;
+    return `${idx + 1}. مقصد: ${item.slaughterhouse} | تعداد: ${item.quantity} | مبلغ: ${item.amount || '-'} ریال\nکد رهگیری: ${item.trackingCode} | خودرو: ${item.carTrackingCode}\nلینک پرداخت: ${url}\n`;
+  }).join('\n------------------------\n\n');
+
+  navigator.clipboard.writeText(textLines).then(() => {
+    showToast(`متن تمام ${paymentLinksList.length} لینک پرداخت کپی شد. می‌توانید آن را برای دیگران ارسال کنید.`, 'success');
+  }).catch(() => {
+    prompt('متن تمام لینک‌ها:', textLines);
   });
 }
 

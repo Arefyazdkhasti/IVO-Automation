@@ -21,6 +21,9 @@ permitService.on('status', (data) => sseBroker.broadcast('status', { service: 'p
 permitService.on('captcha_error', (data) => sseBroker.broadcast('captcha_error', data));
 permitService.on('code_progress', (data) => sseBroker.broadcast('code_progress', data));
 permitService.on('permit_issued', (data) => sseBroker.broadcast('permit_issued', data));
+permitService.on('permit_cooldown_tick', (data) => sseBroker.broadcast('permit_cooldown_tick', data));
+permitService.on('payment_links_ready', (data) => sseBroker.broadcast('payment_links_ready', data));
+permitService.on('closure_confirmation_required', (data) => sseBroker.broadcast('closure_confirmation_required', data));
 
 // Hook Discharge Service events to SSE broadcast
 dischargeService.on('log', (data) => sseBroker.broadcast('log', data));

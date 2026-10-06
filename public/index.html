@@ -241,6 +241,17 @@
                   <label class="form-label">کد مجوز جوجه‌ریزی مبدا:</label>
                   <input type="text" id="hatchInput" class="form-control" placeholder="مثال: 140510014674">
                 </div>
+
+                <div>
+                  <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>🎯 کدهای کاندید اولویت‌دار خودرو (اختیاری):</span>
+                    <span style="font-size: 0.72rem; color: #60a5fa;">بررسی با اولویت اول</span>
+                  </label>
+                  <input type="text" id="candidateCodesInput" class="form-control" placeholder="مثال: 4685103, 1419829 (جدا با کاما یا فاصله)" style="direction: ltr; font-family: monospace;">
+                  <span style="font-size: 0.72rem; color: var(--color-ink-dim); display: block; margin-top: 0.25rem;">
+                    سیستم ابتدا این کدها را تست می‌کند؛ در صورت بسته بودن، خودکار به سراغ کدهای ذخیره‌شده پنل می‌رود.
+                  </span>
+                </div>
               </div>
 
               <!-- Destination & Quantity Controls -->
@@ -257,7 +268,55 @@
                 </div>
               </div>
 
-              <div class="form-group" style="margin-top: 0.5rem;">
+              <!-- Add to Queue Action -->
+              <div style="margin-top: 0.25rem; display: flex; justify-content: flex-end;">
+                <button type="button" id="addPermitToQueueBtn" class="btn btn-sm"
+                  style="background: var(--color-surface-2); border: 1px dashed var(--color-primary); color: var(--color-ink-white); padding: 0.45rem 1rem; font-size: 0.825rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;">
+                  <span>➕ افزودن این کشتارگاه به لیست مجوزها</span>
+                </button>
+              </div>
+
+              <!-- Permits Queue Box -->
+              <div id="permitsQueueBox" style="margin-top: 0.75rem; border: 1px solid var(--color-hairline-dark); background: rgba(0,0,0,0.2); border-radius: 4px; padding: 0.75rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                  <span style="font-size: 0.8rem; font-weight: 600; color: var(--color-ink-white);">
+                    📋 لیست مجوزها جهت صدور متوالی:
+                  </span>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span id="queueSummaryBadge" class="badge badge-cyan" style="font-size: 0.72rem;">۰ مجوز (تک‌مجوز)</span>
+                    <button type="button" id="clearQueueBtn" style="background: none; border: none; color: #ff6666; font-size: 0.75rem; cursor: pointer; display: none;">پاک‌سازی لیست</button>
+                  </div>
+                </div>
+
+                <div id="queueEmptyState" style="font-size: 0.75rem; color: var(--color-ink-dim); text-align: center; padding: 0.5rem 0;">
+                  در صورت خالی بودن لیست، مجوز بر اساس کشتارگاه و تعداد بالا صادر می‌شود. برای ثبت چندین مجوز با یک کد، از دکمه «افزودن» بالا استفاده کنید.
+                </div>
+
+                <div id="queueItemsList" style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 140px; overflow-y: auto;">
+                  <!-- Dynamic Queued Permits -->
+                </div>
+              </div>
+
+              <!-- Cooldown Countdown Banner -->
+              <div id="cooldownBanner" style="display: none; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                  <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <span style="font-size: 1.3rem;">⏳</span>
+                    <div>
+                      <div style="font-weight: 600; color: #fbbf24; font-size: 0.85rem;">تایمر ۲ دقیقه‌ای بین مجوزها (رعایت قوانین سامانه)</div>
+                      <div id="cooldownDetailsText" style="font-size: 0.75rem; color: var(--color-ink-white-muted);">در حال انتظار...</div>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <span id="cooldownTimerBadge" style="font-size: 1.15rem; font-family: monospace; font-weight: bold; color: #fbbf24; background: rgba(0,0,0,0.4); padding: 0.2rem 0.6rem; border-radius: 4px;">02:00</span>
+                    <button type="button" id="skipCooldownBtn" class="btn btn-sm" style="background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #f59e0b; padding: 0.25rem 0.6rem; font-size: 0.75rem; cursor: pointer;">
+                      رد کردن تایمر ⏭️
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-top: 0.75rem;">
                 <label
                   style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-size: 0.825rem; color: var(--color-ink-white-muted);">
                   <input type="checkbox" id="showBrowserCheck" checked
@@ -268,7 +327,7 @@
 
               <div class="actions-row">
                 <button id="startBtn" class="btn btn-primary">
-                  <span>شروع صدور مجوز</span>
+                  <span>شروع صدور مجوزها</span>
                 </button>
                 <button id="stopBtn" class="btn btn-danger" disabled>
                   <span>توقف عملیات</span>
@@ -344,6 +403,57 @@
                     <td colspan="8" style="text-align: center; color: var(--color-ink-dim); padding: 1.5rem;">
                       در این نشست هنوز مجوزی صادر نشده است. پس از کلیک روی «شروع صدور مجوز»، پروانه‌های تایید شده در
                       اینجا جمع‌آوری می‌شوند.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Payment Links History / Active List Card -->
+          <div class="card" id="paymentLinksCard" style="margin-top: 1.5rem;">
+            <div class="card-title">
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span>💳 لینک‌های پرداخت گواهی‌های صادر شده</span>
+                <span class="badge" id="paymentLinksBadge" style="background: #10b981; color: #fff;">۰ لینک</span>
+              </div>
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button type="button" id="checkPaymentLinksStandaloneBtn" class="btn btn-sm"
+                  style="background: #059669; color: #fff; border: none; cursor: pointer; padding: 0.4rem 0.85rem; font-weight: 500;"
+                  title="ورود به سامانه و دریافت لینک‌های پرداخت امروز بدون ثبت مجوز جدید">
+                  🔍 استعلام لینک‌های پرداخت امروز (بدون صدور مجوز)
+                </button>
+                <button type="button" id="copyAllPaymentLinksBtn" class="btn btn-sm"
+                  style="background: #2563eb; color: #fff; border: none; cursor: pointer; padding: 0.4rem 0.85rem;"
+                  title="کپی کردن متن تمام لینک‌های پرداخت جهت اشتراک‌گذاری">
+                  📋 کپی تمام لینک‌ها
+                </button>
+                <button type="button" id="clearPaymentLinksBtn" class="btn btn-sm"
+                  style="background: var(--color-surface-2); color: var(--color-ink-white-muted); border: 1px solid var(--color-hairline-dark); cursor: pointer; padding: 0.4rem 0.75rem;">
+                  پاک‌سازی
+                </button>
+              </div>
+            </div>
+
+            <div
+              style="overflow-x: auto; max-height: 280px; border: 1px solid var(--color-hairline-dark); margin-top: 0.75rem;">
+              <table class="data-table" id="paymentLinksTable">
+                <thead>
+                  <tr>
+                    <th style="width: 45px;">#</th>
+                    <th>کشتارگاه مقصد</th>
+                    <th>تعداد</th>
+                    <th>مبلغ (ریال)</th>
+                    <th>کد رهگیری خودرو</th>
+                    <th>کد گواهی</th>
+                    <th>تاریخ</th>
+                    <th style="text-align: center;">عملیات پرداخت</th>
+                  </tr>
+                </thead>
+                <tbody id="paymentLinksTableBody">
+                  <tr>
+                    <td colspan="8" style="text-align: center; color: var(--color-ink-dim); padding: 1.5rem;">
+                      پس از ثبت گواهی‌ها، لینک‌های پرداخت معتبر امروز به صورت خودکار از بخش مشاهده آمار استخراج شده و اینجا نمایش داده می‌شوند.
                     </td>
                   </tr>
                 </tbody>
@@ -884,6 +994,43 @@
         </button>
         <button type="button" id="cancelLoginBtn" class="btn btn-secondary" style="flex: 1;">
           انصراف
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Declaration of Closure Confirmation (اعلام خاتمه بارگیری) -->
+  <div class="modal-overlay" id="closureModal">
+    <div class="modal-content" style="max-width: 480px; text-align: right; border-top: 4px solid #f59e0b;">
+      <h3
+        style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: #fbbf24; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+        <span>⚠️</span>
+        <span>تأیید اعلام خاتمه صدور گواهی و بارگیری</span>
+      </h3>
+      <p style="font-size: 0.85rem; color: var(--color-ink-white); margin-bottom: 1rem; line-height: 1.6;">
+        تمامی گواهی‌های درخواستی صادر شدند. سامانه در صفحه اعلام خاتمه بارگیری آماده تایید نهایی است.
+      </p>
+
+      <div
+        style="background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; padding: 0.85rem; margin-bottom: 1.25rem;">
+        <div style="font-size: 0.85rem; color: var(--color-ink-white); margin-bottom: 0.35rem;">
+          کد رهگیری فعال: <strong id="closureModalCode" style="font-family: monospace; font-size: 1.1rem; color: #fbbf24; margin-right: 0.3rem;">-</strong>
+        </div>
+        <div style="font-size: 0.78rem; color: #fcd34d; line-height: 1.5;">
+          ⚠️ توجه: با تایید و اعلام خاتمه، بارگیری این کد در سامانه دامپزشکی به صورت رسمی بسته می‌شود.
+        </div>
+      </div>
+
+      <p style="font-size: 0.82rem; color: var(--color-ink-white-muted); margin-bottom: 1.25rem;">
+        آیا از بستن و اعلام خاتمه این کد رهگیری اطمینان دارید؟
+      </p>
+
+      <div class="actions-row">
+        <button type="button" id="confirmClosureBtn" class="btn btn-primary" style="flex: 2; background: #16a34a; border-color: #16a34a;">
+          ✓ بله، تایید و اعلام خاتمه نهایی
+        </button>
+        <button type="button" id="cancelClosureBtn" class="btn btn-secondary" style="flex: 1;">
+          خیر، انصراف (کد باز بماند)
         </button>
       </div>
     </div>

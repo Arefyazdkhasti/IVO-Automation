@@ -62,12 +62,16 @@ class PermitController {
             const {
                 username,
                 customCodes,
+                candidateCodes,
                 headless,
+                permits,
                 slaughterhouseCode,
                 slaughterhouseName,
                 quantity,
                 breed,
                 hatchingPermitCode,
+                skipClosure,
+                cooldownSeconds,
             } = req.body;
 
             if (!username) {
@@ -88,20 +92,103 @@ class PermitController {
                 return res.status(400).json({ success: false, error: 'یک عملیات از قبل در حال اجرا است.' });
             }
 
-            // Run asynchronously
-            permitService
-                .startPermitFlow(userPayload, {
-                    customCodes,
-                    headless: !!headless,
+            const permitsPayload = Array.isArray(permits) && permits.length > 0
+                ? permits
+                : [{
                     slaughterhouseCode,
                     slaughterhouseName,
                     quantity: quantity || '2000',
+                    breed: breed || userPayload.breed || 'راس',
+                }];
+
+            // Run asynchronously
+            permitService
+                .startPermitFlow(userPayload, {
+                    permits: permitsPayload,
+                    candidateCodes: Array.isArray(candidateCodes) ? candidateCodes : [],
+                    customCodes,
+                    headless: !!headless,
+                    skipClosure: !!skipClosure,
+                    cooldownSeconds: cooldownSeconds !== undefined ? Number(cooldownSeconds) : undefined,
                 })
                 .catch((err) => {
                     console.error('Permit workflow error:', err);
                 });
 
-            res.json({ success: true, message: `عملیات صدور مجوز برای ${user.name} آغاز شد.` });
+            const countText = permitsPayload.length > 1 ? `${permitsPayload.length} مجوز` : 'مجوز';
+            res.json({ success: true, message: `عملیات صدور ${countText} برای ${user.name} آغاز شد.` });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    }
+
+    static skipCooldown(req, res) {
+        try {
+            const skipped = permitService.skipCooldown();
+            if (!skipped) {
+                return res.status(400).json({ success: false, error: 'سیستم در وضعیت انتظار تایمر نیست.' });
+            }
+            res.json({ success: true, message: 'تایمر با موفقیت رد شد و مجوز بعدی آغاز می‌شود.' });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    }
+
+    static confirmClosure(req, res) {
+        try {
+            const { confirm } = req.body;
+            const handled = permitService.confirmClosure(confirm);
+            if (!handled) {
+                return res.status(400).json({ success: false, error: 'سیستم در انتظار تایید اعلام خاتمه نیست.' });
+            }
+            res.json({ success: true, message: confirm ? 'تایید اعلام خاتمه ارسال شد.' : 'انصراف از اعلام خاتمه ثبت شد.' });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    }
+
+    static getPaymentLinks(req, res) {
+        try {
+            const links = permitService.sessionPaymentLinks || PermitRepository.getPaymentLinks();
+            res.json({ success: true, count: links.length, paymentLinks: links });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    }
+
+    static clearPaymentLinks(req, res) {
+        try {
+            permitService.sessionPaymentLinks = [];
+            PermitRepository.clearPaymentLinks();
+            res.json({ success: true, message: 'لیست لینک‌های پرداخت پاک شد.' });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    }
+
+    static async checkPaymentLinks(req, res) {
+        try {
+            const { username, headless } = req.body;
+            if (!username) {
+                return res.status(400).json({ success: false, error: 'نام کاربری الزامی است.' });
+            }
+
+            const user = await UsersRepository.findByUsername(username);
+            if (!user) {
+                return res.status(404).json({ success: false, error: 'کاربر مورد نظر یافت نشد.' });
+            }
+
+            if (permitService.isRunning) {
+                return res.status(400).json({ success: false, error: 'یک عملیات از قبل در حال اجرا است.' });
+            }
+
+            permitService
+                .startPaymentLinksCheck(user, { headless: !!headless })
+                .catch((err) => {
+                    console.error('Check payment links workflow error:', err);
+                });
+
+            res.json({ success: true, message: `استعلام لینک‌های پرداخت برای ${user.name} آغاز شد.` });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
         }

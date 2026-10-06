@@ -2,6 +2,7 @@ const fs = require('fs');
 const { TRACKING_CODES_FILE, LAST_SUCCESSFUL_CODE_FILE, resolveDataFile } = require('../../config/paths');
 
 const SESSION_PERMITS_FILE = resolveDataFile('session_permits.json');
+const PAYMENT_LINKS_FILE = resolveDataFile('payment_links.json');
 
 class PermitRepository {
     static getTrackingCodes() {
@@ -74,6 +75,30 @@ class PermitRepository {
 
     static clearSessionPermits() {
         fs.writeFileSync(SESSION_PERMITS_FILE, JSON.stringify([], null, 2), 'utf-8');
+        return [];
+    }
+
+    // ==========================================
+    // Payment Links History (Persistence)
+    // ==========================================
+
+    static getPaymentLinks() {
+        try {
+            if (fs.existsSync(PAYMENT_LINKS_FILE)) {
+                return JSON.parse(fs.readFileSync(PAYMENT_LINKS_FILE, 'utf-8'));
+            }
+        } catch (e) {
+            console.error('Error reading payment links file:', e);
+        }
+        return [];
+    }
+
+    static savePaymentLinks(links) {
+        fs.writeFileSync(PAYMENT_LINKS_FILE, JSON.stringify(links, null, 2), 'utf-8');
+    }
+
+    static clearPaymentLinks() {
+        fs.writeFileSync(PAYMENT_LINKS_FILE, JSON.stringify([], null, 2), 'utf-8');
         return [];
     }
 }

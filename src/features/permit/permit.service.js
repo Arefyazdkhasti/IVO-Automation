@@ -3,12 +3,16 @@ const EventEmitter = require('events');
 const fs = require('fs');
 const path = require('path');
 
-const { URLS } = require('../../config/constants');
+const { URLS, DEFAULTS } = require('../../config/constants');
+const { isTodayPersian } = require('../../core/jalali');
 const PermitRepository = require('./permit.repository');
 
 const LOGIN_URL = URLS.LOGIN_URL;
 const PORTAL_HOME_URL = URLS.PORTAL_HOME_URL;
 const POULTRY_PAGE_URL = URLS.POULTRY_PAGE_URL;
+const REPORTS_HUB_URL = URLS.REPORTS_HUB_URL;
+const REPORTS_ISSUED_KO_URL = URLS.REPORTS_ISSUED_KO_URL;
+const CLOSURE_PAGE_URL = URLS.CLOSURE_PAGE_URL;
 
 class PermitService extends EventEmitter {
     constructor() {
@@ -17,10 +21,13 @@ class PermitService extends EventEmitter {
         this.context = null;
         this.page = null;
         this.isRunning = false;
-        this.currentStatus = 'idle'; // idle, waiting_captcha, navigating, checking_codes, success, failed
+        this.currentStatus = 'idle'; // idle, waiting_captcha, navigating, checking_codes, cooldown, fetching_payment_links, waiting_closure_confirmation, success, failed
         this.captchaResolver = null;
         this.captchaRejecter = null;
+        this.closureResolver = null;
+        this.cooldownSkipResolver = null;
         this.sessionPermits = PermitRepository.getSessionPermits();
+        this.sessionPaymentLinks = PermitRepository.getPaymentLinks();
     }
 
     log(message, type = 'info') {
@@ -49,6 +56,14 @@ class PermitService extends EventEmitter {
             this.captchaRejecter(new Error('عملیات توسط کاربر لغو شد.'));
             this.captchaResolver = null;
             this.captchaRejecter = null;
+        }
+        if (this.closureResolver) {
+            this.closureResolver(false);
+            this.closureResolver = null;
+        }
+        if (this.cooldownSkipResolver) {
+            this.cooldownSkipResolver();
+            this.cooldownSkipResolver = null;
         }
         if (this.context) {
             await this.context.close().catch(() => {});
@@ -82,14 +97,53 @@ class PermitService extends EventEmitter {
         });
     }
 
+    skipCooldown() {
+        if (this.cooldownSkipResolver) {
+            this.log('تایمر انتظار ۲ دقیقه‌ای با درخواست کاربر رد شد.', 'info');
+            this.cooldownSkipResolver();
+            this.cooldownSkipResolver = null;
+            return true;
+        }
+        return false;
+    }
+
+    waitForClosureConfirmation() {
+        return new Promise((resolve) => {
+            this.closureResolver = resolve;
+        });
+    }
+
+    confirmClosure(approved) {
+        if (this.closureResolver) {
+            this.closureResolver(Boolean(approved));
+            this.closureResolver = null;
+            return true;
+        }
+        return false;
+    }
+
     async startPermitFlow(user, options = {}) {
         if (this.isRunning) {
             throw new Error('یک عملیات در حال اجرا است.');
         }
 
+        // Support list of permits or single permit
+        const permitsList = Array.isArray(options.permits) && options.permits.length > 0
+            ? options.permits
+            : [{
+                slaughterhouseCode: options.slaughterhouseCode,
+                slaughterhouseName: options.slaughterhouseName,
+                quantity: options.quantity || '2000',
+                breed: options.breed || user.breed || 'راس',
+            }];
+
+        const cooldownSeconds = options.cooldownSeconds !== undefined
+            ? options.cooldownSeconds
+            : (DEFAULTS?.COOLDOWN_SECONDS || 120);
+
         this.isRunning = true;
         this.setStatus('starting');
-        this.log(`شروع صدور مجوز برای: ${user.name} (${user.username})`, 'info');
+        this.log(`شروع فرآیند صدور ${permitsList.length} مجوز برای مرغدار: ${user.name} (${user.username})`, 'info');
 
         try {
             this.browser = await chromium.launch({
@@ -103,53 +157,581 @@ class PermitService extends EventEmitter {
             this.page = await this.context.newPage();
 
             // Setup dialog listener for alerts/confirmations
-        this.lastDialogMsg = '';
-        this.page.on('dialog', async (dialog) => {
-            this.lastDialogMsg = dialog.message();
-            this.log(`پیام سیستم پورتال (Alert): "${this.lastDialogMsg}"`, 'warning');
-            await dialog.accept().catch(() => {});
-        });
+            this.lastDialogMsg = '';
+            this.page.on('dialog', async (dialog) => {
+                this.lastDialogMsg = dialog.message();
+                this.log(`پیام سیستم پورتال (Alert): "${this.lastDialogMsg}"`, 'warning');
+                await dialog.accept().catch(() => {});
+            });
 
-            // 1. Perform login with captcha verification
+            // 1. Perform login with captcha verification (only ONCE!)
             await this.performLogin(user);
 
-            // 2. Navigate to درون استانی > برون شهرستان > طیور
-            await this.navigateToPoultryPermitPage();
+            let workingTrackingCode = null;
+            const completedPermits = [];
 
-            // 3. Check tracking codes one by one
-            const codes = options.customCodes && options.customCodes.length > 0 
-                ? options.customCodes 
-                : this.getTrackingCodes();
+            // Process all permits sequentially
+            for (let pIdx = 0; pIdx < permitsList.length; pIdx++) {
+                if (!this.isRunning) break;
+                const currentPermitItem = permitsList[pIdx];
 
-            const result = await this.processTrackingCodes(codes);
+                this.log(`\n======================================================`, 'info');
+                this.log(`[مجوز ${pIdx + 1} از ${permitsList.length}] مقصد: ${currentPermitItem.slaughterhouseName || currentPermitItem.slaughterhouseCode} | تعداد: ${currentPermitItem.quantity} قطعه`, 'info');
+                this.log(`======================================================`, 'info');
 
-            if (result.success) {
-                this.setStatus('filling_details', { validCode: result.validCode });
-                this.log(`در حال تکمیل مشخصات محصول، نژاد و کشتارگاه مقصد برای کد ${result.validCode}...`, 'info');
+                // If not the first permit, wait 2 minutes (cooldown)
+                if (pIdx > 0) {
+                    this.log(`⏳ رعایت فاصله زمانی: شروع تایمر ۲ دقیقه‌ای (${cooldownSeconds} ثانیه) قبل از ثبت مجوز بعدی...`, 'info');
+                    await this.waitCooldown(cooldownSeconds, pIdx, permitsList.length, currentPermitItem);
+                    if (!this.isRunning) break;
+                }
 
-                const permitResult = await this.completePermitIssuance(user, result.validCode, options);
+                // Navigate to Poultry Permit Page
+                await this.navigateToPoultryPermitPage();
 
-                this.setStatus('success', { 
-                    message: `مجوز با کد ${result.validCode} و مقصد ${options.slaughterhouseName || 'کشتارگاه'} با موفقیت صادر شد!`,
-                    validCode: result.validCode,
-                    finalUrl: permitResult.finalUrl
+                if (pIdx === 0) {
+                    // First permit: check candidate codes first, then fallback to default tracking codes
+                    const candidateCodes = Array.isArray(options.candidateCodes)
+                        ? options.candidateCodes.map((c) => String(c).trim()).filter(Boolean)
+                        : [];
+
+                    let codeResult = null;
+                    if (candidateCodes.length > 0) {
+                        this.log(`🎯 مرحله ۱: بررسی ${candidateCodes.length} کد کاندید اولویت‌دار...`, 'info');
+                        codeResult = await this.processTrackingCodes(candidateCodes, { isCandidate: true });
+                    }
+
+                    if (!codeResult || !codeResult.success) {
+                        if (candidateCodes.length > 0) {
+                            this.log('⚠️ هیچ‌کدام از کدهای کاندید اولیه باز نبودند. در حال ادامه بررسی با لیست کدهای ذخیره‌شده پنل...', 'warning');
+                        }
+                        const defaultCodes = options.customCodes && options.customCodes.length > 0 
+                            ? options.customCodes 
+                            : this.getTrackingCodes();
+                        const remainingCodes = defaultCodes.filter((c) => !candidateCodes.includes(String(c).trim()));
+                        codeResult = await this.processTrackingCodes(remainingCodes, { isCandidate: false });
+                    }
+
+                    if (!codeResult || !codeResult.success) {
+                        this.setStatus('failed', { 
+                            message: 'هیچ‌کدام از کدهای رهگیری باز نبوده یا دکمه حمل به کشتارگاه ظاهر نشد.' 
+                        });
+                        this.log('تمام کدهای رهگیری بررسی شدند اما هیچ‌کدام باز نبودند.', 'error');
+                        return { success: false, reason: 'no_valid_code_found' };
+                    }
+                    workingTrackingCode = codeResult.validCode;
+                } else {
+                    // Subsequent permits: use the SAME working code without re-login!
+                    this.log(`ثبت مجوز بعدی با همان کد کارکرده قبلی (${workingTrackingCode}) بدون نیاز به لاگین مجدد...`, 'info');
+                    const reusedSuccess = await this.useExistingTrackingCode(workingTrackingCode);
+                    if (!reusedSuccess) {
+                        this.log(`کد ${workingTrackingCode} برای مجوز ${pIdx + 1} پاسخ نداد. جستجو در سایر کدها...`, 'warning');
+                        const codes = options.customCodes && options.customCodes.length > 0
+                            ? options.customCodes
+                            : this.getTrackingCodes();
+                        const codeResult = await this.processTrackingCodes(codes);
+                        if (!codeResult.success) {
+                            this.log(`کد جایگزینی برای مجوز ${pIdx + 1} یافت نشد.`, 'error');
+                            break;
+                        }
+                        workingTrackingCode = codeResult.validCode;
+                    }
+                }
+
+                // Complete permit issuance for current item
+                this.setStatus('filling_details', {
+                    validCode: workingTrackingCode,
+                    permitIndex: pIdx + 1,
+                    totalPermits: permitsList.length,
+                    permitItem: currentPermitItem,
                 });
-                this.log(`🎉 عملیات صدور مجوز با موفقیت به پایان رسید! آدرس نهایی: ${permitResult.finalUrl}`, 'success');
-                return permitResult;
-            } else {
-                this.setStatus('failed', { 
-                    message: 'هیچ‌کدام از کدهای رهگیری باز نبوده یا دکمه حمل به کشتارگاه ظاهر نشد.' 
-                });
-                this.log('تمام کدهای رهگیری بررسی شدند اما هیچ‌کدام باز نبودند.', 'error');
+                this.log(`در حال تکمیل فرم و صدور مجوز ${pIdx + 1} برای کشتارگاه ${currentPermitItem.slaughterhouseName || 'مقصد'}...`, 'info');
+
+                const permitOptions = {
+                    ...options,
+                    slaughterhouseCode: currentPermitItem.slaughterhouseCode,
+                    slaughterhouseName: currentPermitItem.slaughterhouseName,
+                    quantity: currentPermitItem.quantity,
+                    breed: currentPermitItem.breed || user.breed || 'راس',
+                };
+
+                const permitResult = await this.completePermitIssuance(user, workingTrackingCode, permitOptions);
+                completedPermits.push(permitResult);
+                this.log(`✓ مجوز ${pIdx + 1} با موفقیت ثبت شد!`, 'success');
             }
 
-            return result;
+            if (completedPermits.length === 0) {
+                this.setStatus('failed', { message: 'هیچ مجوزی صادر نشد.' });
+                return { success: false, message: 'هیچ مجوزی صادر نشد.' };
+            }
+
+            // ====================================================
+            // Step 2: Fetch Payment Links from Reports / Rep_zir_KO.aspx
+            // ====================================================
+            let paymentLinks = [];
+            if (this.isRunning) {
+                try {
+                    paymentLinks = await this.fetchPaymentLinksFromReports();
+                } catch (err) {
+                    this.log(`خطا در استخراج لینک‌های پرداخت: ${err.message}`, 'error');
+                }
+            }
+
+            // ====================================================
+            // Step 3: Closure Declaration (اعلام خاتمه صدور گواهی و بارگیری)
+            // ====================================================
+            let closureConfirmed = false;
+            if (this.isRunning && workingTrackingCode && !options.skipClosure) {
+                try {
+                    closureConfirmed = await this.handleClosureDeclaration(workingTrackingCode, permitsList.length);
+                } catch (err) {
+                    this.log(`خطا در اعلام خاتمه بارگیری: ${err.message}`, 'error');
+                }
+            }
+
+            this.setStatus('success', { 
+                message: `تعداد ${completedPermits.length} مجوز با موفقیت صادر شدند.${closureConfirmed ? ' اعلام خاتمه بارگیری نیز با تایید شما ثبت شد.' : ''}`,
+                validCode: workingTrackingCode,
+                completedPermits,
+                paymentLinks,
+                closureConfirmed,
+            });
+            this.log(`🎉 تمام مراحل با موفقیت به پایان رسید! لینک‌های پرداخت آماده‌اند.`, 'success');
+
+            return {
+                success: true,
+                validCode: workingTrackingCode,
+                completedPermits,
+                paymentLinks,
+                closureConfirmed,
+            };
 
         } catch (err) {
             this.log(`خطا در اجرای فرآیند: ${err.message}`, 'error');
             this.setStatus('failed', { message: err.message });
             throw err;
         } finally {
+            this.isRunning = false;
+        }
+    }
+
+    async waitCooldown(seconds, nextIndex, total, nextItem) {
+        for (let s = seconds; s > 0; s--) {
+            if (!this.isRunning) return;
+            this.setStatus('cooldown', {
+                remainingSeconds: s,
+                totalSeconds: seconds,
+                nextPermitIndex: nextIndex + 1,
+                totalPermits: total,
+                nextItem,
+            });
+            this.emit('permit_cooldown_tick', {
+                remainingSeconds: s,
+                totalSeconds: seconds,
+                nextPermitIndex: nextIndex + 1,
+                totalPermits: total,
+                nextItem,
+            });
+
+            await new Promise((resolve) => {
+                this.cooldownSkipResolver = resolve;
+                setTimeout(() => {
+                    this.cooldownSkipResolver = null;
+                    resolve();
+                }, 1000);
+            });
+        }
+        this.cooldownSkipResolver = null;
+    }
+
+    async useExistingTrackingCode(code) {
+        try {
+            const gidInput = await this.ensureOnPoultryPermitPage();
+            await gidInput.click();
+            await gidInput.fill('');
+            await gidInput.fill(code);
+
+            const taeedBtn = this.page.locator('input#taeed, input[name="taeed"]').first();
+            this.lastDialogMsg = '';
+
+            await Promise.all([
+                this.page.waitForLoadState('domcontentloaded').catch(() => {}),
+                taeedBtn.click(),
+            ]);
+
+            const slaughterBtn = this.page.locator('input#button4, input[name="button4"], input[value="حمل به کشتارگاه"]').first();
+            await slaughterBtn.waitFor({ state: 'visible', timeout: 8000 });
+
+            this.log(`✓ دکمه "حمل به کشتارگاه" برای کد رهگیری ${code} نمایان شد!`, 'success');
+            await Promise.all([
+                this.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {}),
+                slaughterBtn.click(),
+            ]);
+            return true;
+        } catch (err) {
+            this.log(`خطا در ورود مجدد با کد ${code}: ${err.message}`, 'warning');
+            return false;
+        }
+    }
+
+    async fetchPaymentLinksFromReports() {
+        this.setStatus('fetching_payment_links');
+        this.log('در حال انتقال به بخش "مشاهده آمار" جهت استخراج لینک‌های پرداخت...', 'info');
+
+        // Step 1: Ensure we are in reports section (to initialize session context)
+        this.log('انتقال به بخش مشاهده آمار...', 'info');
+        if (!this.page.url().includes('reports.aspx')) {
+            const topReportsMenu = this.page.locator('a[href*="reports.aspx"], a:has-text("مشاهده آمار")').first();
+            if (await topReportsMenu.isVisible().catch(() => false)) {
+                await topReportsMenu.click().catch(() => {});
+            } else {
+                await this.page.goto(REPORTS_HUB_URL, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+            }
+            await this.page.waitForTimeout(1000);
+        }
+
+        // Step 2: Navigate directly to Reports/Rep_zir_KO.aspx (زیر مجموعه درون استانی) with referer
+        this.log('ورود به صفحه گزارش زیر مجموعه درون استانی (Reports/Rep_zir_KO.aspx)...', 'info');
+        await this.page.goto(REPORTS_ISSUED_KO_URL, { 
+            referer: REPORTS_HUB_URL,
+            waitUntil: 'domcontentloaded', 
+            timeout: 30000 
+        }).catch(async () => {
+            await this.page.evaluate(() => {
+                window.location.href = 'Reports/Rep_zir_KO.aspx';
+            }).catch(() => {});
+        });
+
+        // Ensure we are on Rep_zir_KO.aspx
+        await this.page.waitForURL((u) => u.href.includes('Rep_zir_KO.aspx') || u.href.includes('notallow.aspx'), { timeout: 20000 }).catch(() => {});
+        await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+        await this.page.waitForTimeout(1500);
+
+        // If notallow redirected, try clicking the DOM link via location assign from reports.aspx
+        if (this.page.url().includes('notallow.aspx')) {
+            this.log('پورتال خطای دسترسی داد (notallow.aspx). تلاش مجدد از طریق باز کردن آکاردئون...', 'warning');
+            await this.page.goto(REPORTS_HUB_URL, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+            await this.page.waitForTimeout(1000);
+            
+            // Expand accordion
+            const accToggle = this.page.locator('a:has-text("گواهی های صادر"), a:has-text("گواهی‌های صادر"), .accordion-toggle:has-text("صادر")').first();
+            if (await accToggle.isVisible().catch(() => false)) {
+                await accToggle.click().catch(() => {});
+                await this.page.waitForTimeout(800);
+            }
+
+            await this.page.evaluate(() => {
+                const link = document.querySelector('a[href*="Rep_zir_KO.aspx"]');
+                if (link && link.href) {
+                    window.location.href = link.href;
+                } else {
+                    window.location.href = 'Reports/Rep_zir_KO.aspx';
+                }
+            }).catch(() => {});
+
+            await this.page.waitForURL((u) => u.href.includes('Rep_zir_KO.aspx'), { timeout: 20000 }).catch(() => {});
+            await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+            await this.page.waitForTimeout(1500);
+        }
+
+        const currentUrl = this.page.url();
+        this.log(`صفحه گزارش فعال شد: ${currentUrl}`, 'info');
+
+        // Step 3: Wait for Rep_zir_KO.aspx to be ready, then click "مشاهده آمار" button
+        this.log('کلیک روی دکمه "مشاهده آمار" در صفحه گزارش زیر مجموعه درون استانی...', 'info');
+        const viewStatsBtn = this.page.locator(`
+            input#Button2[value*="مشاهده آمار"],
+            input[value*="مشاهده آمار"],
+            button:has-text("مشاهده آمار"),
+            input#Button2,
+            input[name*="Button2"]
+        `).first();
+
+        await viewStatsBtn.waitFor({ state: 'visible', timeout: 20000 });
+        
+        try {
+            await Promise.all([
+                this.page.waitForLoadState('domcontentloaded', { timeout: 25000 }).catch(() => {}),
+                viewStatsBtn.click(),
+            ]);
+        } catch (clickErr) {
+            this.log(`کلیک مستقیم با پیام روبرو شد: ${clickErr.message}. کلیک با evaluate...`, 'warning');
+            await this.page.evaluate(() => {
+                const btn = document.querySelector('input#Button2') || document.querySelector('input[value*="مشاهده آمار"]');
+                if (btn) btn.click();
+            }).catch(() => {});
+        }
+
+        await this.page.waitForTimeout(3000);
+
+        // Step 5: Wait for GridView2
+        const gridView = this.page.locator('table#GridView2, table[id*="GridView2"], table.GridView').first();
+        if (!(await gridView.isVisible({ timeout: 20000 }).catch(() => false))) {
+            this.log('جدول نتایج گزارش (GridView2) در صفحه یافت نشد یا داده‌ای وجود ندارد.', 'warning');
+            return [];
+        }
+
+        // Scrape table rows
+        const rowsData = await this.page.evaluate(() => {
+            const table = document.querySelector('table#GridView2') || document.querySelector('table[id*="GridView2"]');
+            if (!table) return [];
+            const trs = Array.from(table.querySelectorAll('tr'));
+            if (trs.length <= 1) return []; // only header
+
+            const results = [];
+            // Skip header tr (index 0)
+            for (let i = 1; i < trs.length; i++) {
+                const tr = trs[i];
+                const tds = tr.querySelectorAll('td');
+                if (tds.length < 5) continue;
+
+                const rowId = tds[1]?.innerText?.trim() || '';
+                const payLinkEl = tds[2]?.querySelector('a');
+                const payLinkText = payLinkEl ? payLinkEl.innerText.trim() : '';
+                const payHref = payLinkEl ? (payLinkEl.getAttribute('href') || '') : '';
+                const commandArg = payLinkEl ? (payLinkEl.getAttribute('commandargument') || '') : '';
+
+                const permitCodeEl = tds[3]?.querySelector('a') || tds[3];
+                const permitCode = permitCodeEl ? permitCodeEl.innerText.trim() : '';
+
+                const dateText = tds[4]?.innerText?.trim() || '';
+                const product = tds[5]?.innerText?.trim() || '';
+                const quantity = tds[6]?.innerText?.trim() || '';
+                const unit = tds[7]?.innerText?.trim() || '';
+                const slaughterhouse = tds[13]?.innerText?.trim() || '';
+                const owner = tds[14]?.innerText?.trim() || '';
+                const carTrackingCode = tds[15]?.innerText?.trim() || '';
+                const driverName = tds[16]?.innerText?.trim() || '';
+                const plate = tds[17]?.innerText?.trim() || '';
+                const amount = tds[19]?.innerText?.trim() || '';
+
+                results.push({
+                    rowId,
+                    payLinkText,
+                    payHref,
+                    commandArg,
+                    permitCode,
+                    dateText,
+                    product,
+                    quantity,
+                    unit,
+                    slaughterhouse,
+                    owner,
+                    carTrackingCode,
+                    driverName,
+                    plate,
+                    amount,
+                });
+            }
+            return results;
+        });
+
+        this.log(`تعداد کل رکوردهای موجود در جدول آمار: ${rowsData.length}`, 'info');
+
+        // Filter records with pending payment ("پرداخت کنید")
+        const targetRows = rowsData.filter((r) => {
+            const hasPay = (r.payLinkText.includes('پرداخت') || r.payHref.includes('payment.aspx')) && r.payHref.length > 0;
+            return hasPay;
+        });
+
+        targetRows.sort((a, b) => {
+            const aToday = isTodayPersian(a.dateText) ? 1 : 0;
+            const bToday = isTodayPersian(b.dateText) ? 1 : 0;
+            return bToday - aToday;
+        });
+
+        const todayCount = targetRows.filter((r) => isTodayPersian(r.dateText)).length;
+        this.log(`تعداد ${targetRows.length} گواهی در انتظار پرداخت یافت شد (${todayCount} مورد مربوط به امروز).`, 'info');
+
+        const paymentLinks = [];
+
+        // For each target row, resolve payment link and try resolving bank gateway
+        for (const row of targetRows) {
+            let gid = row.commandArg;
+            if (!gid && row.payHref) {
+                const m = row.payHref.match(/gid=([a-f0-9-]+)/i);
+                if (m) gid = m[1];
+            }
+
+            const paymentUrl = row.payHref.startsWith('http')
+                ? row.payHref
+                : `https://e.ivo.ir${row.payHref.startsWith('/') ? '' : '/'}${row.payHref}`;
+
+            let gatewayUrl = null;
+
+            // Visit the payment page in a new context tab to inspect/trigger #btnPayment
+            try {
+                const payPage = await this.context.newPage();
+                await payPage.goto(paymentUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+                await payPage.waitForTimeout(1000);
+
+                const btnPayment = payPage.locator('input#btnPayment, input[value="پرداخت"]').first();
+                if (await btnPayment.isVisible({ timeout: 5000 }).catch(() => false)) {
+                    // Try clicking to see if it redirects to bank IPG
+                    try {
+                        await Promise.all([
+                            payPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => null),
+                            btnPayment.click().catch(() => {}),
+                        ]);
+                        const curUrl = payPage.url();
+                        if (!curUrl.includes('payment.aspx') && !curUrl.includes('Login_Required')) {
+                            gatewayUrl = curUrl;
+                            this.log(`آدرس مستقیم درگاه بانکی برای ${row.slaughterhouse}: ${gatewayUrl.slice(0, 50)}...`, 'success');
+                        }
+                    } catch (e) {}
+                }
+                await payPage.close().catch(() => {});
+            } catch (err) {
+                this.log(`خطا در بررسی دکمه پرداخت رکورد ${row.permitCode}: ${err.message}`, 'warning');
+            }
+
+            const item = {
+                id: row.rowId,
+                gid: gid || row.rowId,
+                trackingCode: row.permitCode,
+                carTrackingCode: row.carTrackingCode,
+                date: row.dateText,
+                slaughterhouse: row.slaughterhouse,
+                quantity: row.quantity,
+                amount: row.amount,
+                paymentUrl: paymentUrl,
+                gatewayUrl: gatewayUrl,
+                status: 'آماده پرداخت',
+                createdAt: new Date().toISOString(),
+            };
+
+            paymentLinks.push(item);
+        }
+
+        this.sessionPaymentLinks = paymentLinks;
+        PermitRepository.savePaymentLinks(paymentLinks);
+        this.emit('payment_links_ready', { paymentLinks });
+
+        return paymentLinks;
+    }
+
+    async handleClosureDeclaration(workingTrackingCode, totalPermitsCount) {
+        this.setStatus('navigating_closure');
+        this.log(`در حال انتقال به صفحه اعلام خاتمه برای کد رهگیری ${workingTrackingCode}...`, 'info');
+
+        await this.page.goto(REPORTS_HUB_URL, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+        await this.page.waitForTimeout(800);
+
+        await this.page.goto(CLOSURE_PAGE_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await this.page.waitForTimeout(1000);
+
+        // Fill idcode: <input name="idcode" type="text" maxlength="7" id="idcode">
+        const idcodeInput = this.page.locator('input#idcode, input[name="idcode"]').first();
+        await idcodeInput.waitFor({ state: 'visible', timeout: 15000 });
+        await idcodeInput.fill('');
+        await idcodeInput.fill(workingTrackingCode);
+
+        // Click submit: <input class="login-submit" type="submit" value="   تایید و ارسال     ">
+        const submitBtn = this.page.locator('input.login-submit[value*="تایید و ارسال"], input[value*="تایید و ارسال"]').first();
+        await Promise.all([
+            this.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {}),
+            submitBtn.click(),
+        ]);
+        await this.page.waitForTimeout(1500);
+
+        // Verify if final button is present:
+        // <input type="submit" name="Button1" value="اعلام خاتمه صدور گواهی و بارگیری" id="Button1" style="width:346px;">
+        const finalCloseBtn = this.page.locator('input#Button1[value*="اعلام خاتمه"], input#Button1').first();
+        const hasFinalBtn = await finalCloseBtn.isVisible({ timeout: 10000 }).catch(() => false);
+
+        if (!hasFinalBtn) {
+            const pageAlert = await this.page.locator('span[style*="color:Red"], #lblError, #lblMessage, #Label1').allInnerTexts().catch(() => []);
+            const alertMsg = pageAlert.filter(Boolean).join(' ') || this.lastDialogMsg || 'دکمه اعلام خاتمه یافت نشد';
+            this.log(`پیام سامانه در صفحه اعلام خاتمه: ${alertMsg}`, 'warning');
+            return false;
+        }
+
+        // Prompt user verification via UI / SSE modal
+        this.setStatus('waiting_closure_confirmation', {
+            validCode: workingTrackingCode,
+            totalPermits: totalPermitsCount,
+            message: `آیا مایل هستید اعلام خاتمه صدور گواهی و بارگیری برای کد رهگیری ${workingTrackingCode} تایید و ثبت شود؟`,
+        });
+        this.emit('closure_confirmation_required', {
+            validCode: workingTrackingCode,
+            totalPermits: totalPermitsCount,
+            message: `آیا مایل هستید اعلام خاتمه صدور گواهی و بارگیری برای کد رهگیری ${workingTrackingCode} تایید و ثبت شود؟ پس از تایید، این کد در سامانه بسته خواهد شد.`,
+        });
+
+        this.log(`⏳ در انتظار تایید کاربر جهت بستن و اعلام خاتمه کد رهگیری ${workingTrackingCode}...`, 'warning');
+        const userApproved = await this.waitForClosureConfirmation();
+
+        if (userApproved) {
+            this.log(`کاربر اعلام خاتمه را تایید کرد. در حال کلیک روی دکمه "اعلام خاتمه صدور گواهی و بارگیری"...`, 'info');
+            this.lastDialogMsg = '';
+            await Promise.all([
+                this.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {}),
+                finalCloseBtn.click(),
+            ]);
+            await this.page.waitForTimeout(1500);
+
+            const resultAlert = this.lastDialogMsg || 'اعلام خاتمه صدور گواهی و بارگیری با موفقیت ثبت شد.';
+            this.log(`✓ نتیجه اعلام خاتمه: ${resultAlert}`, 'success');
+            return true;
+        } else {
+            this.log(`انصراف از اعلام خاتمه توسط کاربر. کد ${workingTrackingCode} بدون تغییر باز می‌ماند.`, 'info');
+            return false;
+        }
+    }
+
+    async startPaymentLinksCheck(user, options = {}) {
+        if (this.isRunning) {
+            throw new Error('یک عملیات در حال اجرا است.');
+        }
+
+        this.isRunning = true;
+        this.setStatus('starting');
+        this.log(`شروع استعلام مستقیم لینک‌های پرداخت برای: ${user.name} (${user.username})`, 'info');
+
+        try {
+            this.browser = await chromium.launch({
+                headless: options.headless !== undefined ? options.headless : false,
+                slowMo: 100,
+            });
+
+            this.context = await this.browser.newContext({
+                viewport: { width: 1280, height: 800 },
+            });
+            this.page = await this.context.newPage();
+
+            this.lastDialogMsg = '';
+            this.page.on('dialog', async (dialog) => {
+                this.lastDialogMsg = dialog.message();
+                this.log(`پیام سیستم: "${this.lastDialogMsg}"`, 'warning');
+                await dialog.accept().catch(() => {});
+            });
+
+            // 1. Login with captcha verification
+            await this.performLogin(user);
+
+            // 2. Fetch payment links from reports
+            const paymentLinks = await this.fetchPaymentLinksFromReports();
+
+            this.setStatus('success', {
+                message: `استعلام لینک‌های پرداخت به پایان رسید. تعداد ${paymentLinks.length} لینک پرداخت برای امروز دریافت شد.`,
+                paymentLinks,
+            });
+            this.log(`✓ استعلام لینک‌های پرداخت با موفقیت کامل انجام شد (${paymentLinks.length} لینک دریافت گردید).`, 'success');
+
+            return paymentLinks;
+        } catch (err) {
+            this.log(`خطا در استعلام لینک‌های پرداخت: ${err.message}`, 'error');
+            this.setStatus('failed', { message: err.message });
+            throw err;
+        } finally {
+            if (this.context) {
+                await this.context.close().catch(() => {});
+                this.context = null;
+            }
+            if (this.browser) {
+                await this.browser.close().catch(() => {});
+                this.browser = null;
+            }
             this.isRunning = false;
         }
     }
@@ -319,9 +901,10 @@ class PermitService extends EventEmitter {
         return gidInput;
     }
 
-    async processTrackingCodes(codes) {
-        this.setStatus('checking_codes', { totalCodes: codes.length, currentIndex: 0 });
-        this.log(`شروع بررسی ${codes.length} کد رهگیری برای یافتن کد باز...`, 'info');
+    async processTrackingCodes(codes, meta = {}) {
+        this.setStatus('checking_codes', { totalCodes: codes.length, currentIndex: 0, isCandidate: !!meta.isCandidate });
+        const label = meta.isCandidate ? 'کد کاندید اولیه' : 'کد رهگیری';
+        this.log(`شروع بررسی ${codes.length} ${label} برای یافتن کد باز...`, 'info');
 
         for (let i = 0; i < codes.length; i++) {
             if (!this.isRunning) {
@@ -336,9 +919,10 @@ class PermitService extends EventEmitter {
                 index: i,
                 code: code,
                 status: 'checking',
-                message: `در حال بررسی کد ${code} (${i + 1} از ${codes.length})...`
+                isCandidate: !!meta.isCandidate,
+                message: `در حال بررسی ${label} ${code} (${i + 1} از ${codes.length})...`
             });
-            this.log(`[${i + 1}/${codes.length}] تست کد رهگیری: ${code}`, 'info');
+            this.log(`[${i + 1}/${codes.length}] تست ${label}: ${code}`, 'info');
 
             try {
                 // Ensure we are strictly on index_dbkava.aspx

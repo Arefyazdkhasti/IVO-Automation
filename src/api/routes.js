@@ -57,6 +57,11 @@ router.delete('/codes/:code', requireAuth, PermitController.deleteCode);
 // ==========================================
 router.get('/last-successful-code', PermitController.getLastSuccessfulCode);
 router.post('/start', requireAuth, PermitController.startPermit);
+router.post('/permits/skip-cooldown', requireAuth, PermitController.skipCooldown);
+router.post('/permits/confirm-closure', requireAuth, PermitController.confirmClosure);
+router.get('/permits/payment-links', PermitController.getPaymentLinks);
+router.post('/permits/check-payment-links', requireAuth, PermitController.checkPaymentLinks);
+router.delete('/permits/payment-links', requireAuth, PermitController.clearPaymentLinks);
 router.get('/permits/session', PermitController.getSessionPermits);
 router.delete('/permits/session', requireAuth, PermitController.clearSessionPermits);
 router.post('/permits/export/excel', PermitController.exportPermitsExcel);

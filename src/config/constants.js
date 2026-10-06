@@ -4,6 +4,8 @@ module.exports = {
         PORTAL_HOME_URL: 'https://e.ivo.ir/new_login/index1.aspx',
         POULTRY_PAGE_URL: 'https://e.ivo.ir/new_login/index_dbkava.aspx',
         REPORTS_HUB_URL: 'https://e.ivo.ir/new_login/reports.aspx',
+        REPORTS_ISSUED_KO_URL: 'https://e.ivo.ir/new_login/Reports/Rep_zir_KO.aspx',
+        CLOSURE_PAGE_URL: 'https://e.ivo.ir/new_login/chand/CAR_bar.aspx',
         DISCHARGE_PAGE_URL: 'https://e.ivo.ir/new_login/Reports/Rep_Rcv_takh.aspx',
     },
     REPORT_PAGES: [
@@ -18,5 +20,6 @@ module.exports = {
         FLOCK_AGE: '45 روز',
         COMMODITY_TYPE: 'گوشت مرغ',
         PERMIT_VALIDITY_DAYS: '3 روز',
+        COOLDOWN_SECONDS: 120,
     },
 };
