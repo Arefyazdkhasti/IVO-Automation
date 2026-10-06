@@ -1,16 +1,80 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base href="/">
   <title>سامانه اتوماسیون جامع دامپزشکی (IVO)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700&family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700&family=Vazirmatn:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/fp.min.js"></script>
 </head>
+
 <body>
-  <div class="container">
+  <!-- FULL-PAGE AUTHENTICATION SCREEN (LOGIN-BASED SYSTEM) -->
+  <div id="loginScreen" class="login-screen-view" style="display: none;">
+    <div class="login-box">
+      <div class="login-header">
+        <div class="login-logo-badge">IVO AUTO</div>
+        <h2 class="login-title">سامانه اتوماسیون دامپزشکی</h2>
+        <p class="login-subtitle">احراز هویت قفل‌شده با اثر انگشت مرورگر</p>
+      </div>
+
+      <!-- Device Fingerprint Status Banner -->
+      <!-- <div class="login-device-card">
+        <div class="login-device-meta">
+          <span class="login-device-title">
+            <span>🛡️</span>
+            <span>شناسه سخت‌افزاری این مرورگر:</span>
+          </span>
+          <span style="font-size: 0.72rem; color: var(--color-ink-white-muted);">
+            پس از ورود، این حساب تنها روی همین مرورگر مجاز خواهد بود.
+          </span>
+        </div>
+        <span id="loginFpBadge" class="login-device-code">در حال محاسبه...</span>
+      </div> -->
+
+      <!-- Login Alert / Error Message -->
+      <div id="loginAlertBox" class="login-alert"></div>
+
+      <!-- Login Form -->
+      <form id="mainLoginForm" onsubmit="return false;">
+        <div class="login-form-group">
+          <label for="loginIdentifierInput">ایمیل حساب کاربری: *</label>
+          <input type="text" id="loginIdentifierInput" class="form-control" placeholder="مثال: test@gmail.com یا admin"
+            autocomplete="username" required>
+        </div>
+
+        <div class="login-form-group">
+          <label for="loginPasswordInput">رمز عبور: *</label>
+          <div class="pass-input-wrapper">
+            <input type="password" id="loginPasswordInput" class="form-control" placeholder="••••••••"
+              autocomplete="current-password" required>
+            <button type="button" class="pass-toggle-btn" id="toggleLoginPasswordBtn" title="نمایش رمز">👁️</button>
+          </div>
+        </div>
+
+        <button type="button" id="submitLoginActionBtn" class="btn btn-primary login-submit-btn">
+          <span>ورود به سامانه</span>
+          <span>↵</span>
+        </button>
+      </form>
+
+      <div class="login-help-toggle" id="toggleLoginHelpBtn">راهنمای حساب‌های کاربری ▾</div>
+      <div class="login-help-box" id="loginHelpBox">
+        <div> ایمیل و رمز عبور خود را از مدیریت سیستم درخواست کنید و با آن وارد حساب خود شوید. </div>
+        <div style="margin-top: 4px; color: #f87171;">⛔ توجه امنیتی: در صورت تلاش برای ورود با مرورگر یا دستگاه دیگر،
+          حساب مسدود و خطا اعلام می‌شود.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mainAppWrapper" class="container" style="display: none;">
     <!-- Top Header -->
     <header>
       <div class="brand">
@@ -20,10 +84,22 @@
           <p>صدور پروانه حمل طیور و استعلام تایید تخلیه گواهی‌ها</p>
         </div>
       </div>
-      <div class="header-status">
+      <div class="header-status" style="display: flex; align-items: center; gap: 0.75rem;">
         <div class="status-pill">
           <span class="status-dot" id="systemDot"></span>
           <span id="systemStatusText">آماده به کار</span>
+        </div>
+        <div id="headerAuthArea">
+          <div id="userProfileBadge"
+            style="display: flex; align-items: center; gap: 0.6rem; background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+            <span style="font-size: 0.9rem;">👤</span>
+            <span id="loggedInFarmerName" style="color: var(--color-ink-white); font-weight: 600;">-</span>
+            <span id="loggedInRoleBadge" class="role-badge">مرغدار</span>
+            <span id="deviceVerifiedBadge" class="device-badge-active" title="این مرورگر تایید و ثبت شده است">🔒 مرورگر
+              تایید شده</span>
+            <button type="button" id="logoutBtn" class="btn btn-secondary"
+              style="padding: 0.2rem 0.6rem; font-size: 0.75rem; color: #ff6666; margin-right: 0.25rem;">خروج</button>
+          </div>
         </div>
       </div>
     </header>
@@ -36,7 +112,7 @@
           <div class="rail-section-header">عملیات اصلی سامانه</div>
 
           <!-- 1: Permit Issuance -->
-          <button type="button" class="rail-menu-item active" id="tabPermitBtn">
+          <button type="button" class="rail-menu-item active" id="tabPermitBtn" data-route="/permits">
             <span class="rail-menu-icon">📜</span>
             <div class="rail-menu-text">
               <span class="rail-menu-title">صدور پروانه حمل طیور</span>
@@ -45,7 +121,7 @@
           </button>
 
           <!-- 2: Discharge Clearance -->
-          <button type="button" class="rail-menu-item" id="tabDischargeBtn">
+          <button type="button" class="rail-menu-item" id="tabDischargeBtn" data-route="/discharge">
             <span class="rail-menu-icon">🚛</span>
             <div class="rail-menu-text">
               <span class="rail-menu-title">استعلام و تایید تخلیه</span>
@@ -57,7 +133,7 @@
           <div class="rail-section-header" style="margin-top: 0.75rem;">پنل مدیریت اطلاعات</div>
 
           <!-- 3: Users Management -->
-          <button type="button" class="rail-menu-item" id="subtabUsersBtn">
+          <button type="button" class="rail-menu-item" id="subtabUsersBtn" data-route="/admin/users">
             <span class="rail-menu-icon">👥</span>
             <div class="rail-menu-text">
               <span class="rail-menu-title">مرغداران و کاربران</span>
@@ -66,7 +142,7 @@
           </button>
 
           <!-- 4: Slaughterhouses Management -->
-          <button type="button" class="rail-menu-item" id="subtabShBtn">
+          <button type="button" class="rail-menu-item" id="subtabShBtn" data-route="/admin/slaughterhouses">
             <span class="rail-menu-icon">🏭</span>
             <div class="rail-menu-text">
               <span class="rail-menu-title">کشتارگاه‌های مقصد</span>
@@ -75,7 +151,7 @@
           </button>
 
           <!-- 5: Tracking Codes Management -->
-          <button type="button" class="rail-menu-item" id="subtabCodesBtn">
+          <button type="button" class="rail-menu-item" id="subtabCodesBtn" data-route="/admin/codes">
             <span class="rail-menu-icon">🚚</span>
             <div class="rail-menu-text">
               <span class="rail-menu-title">کدهای رهگیری خودرو</span>
@@ -89,400 +165,446 @@
       <main class="app-main-content">
         <!-- TAB 1: PERMIT ISSUANCE PANE -->
         <div id="permitPane" class="tab-pane active">
-      <!-- Stepper Bar -->
-      <div class="stepper-card">
-        <div class="steps">
-          <div class="step-item active" id="step1">
-            <div class="step-number">01</div>
-            <div class="step-title">تنظیم کاربر و مقصد</div>
-          </div>
-          <div class="step-item" id="step2">
-            <div class="step-number">02</div>
-            <div class="step-title">ورود و حل کپچا</div>
-          </div>
-          <div class="step-item" id="step3">
-            <div class="step-number">03</div>
-            <div class="step-title">رهگیری و حمل کشتارگاه</div>
-          </div>
-          <div class="step-item" id="step4">
-            <div class="step-number">04</div>
-            <div class="step-title">مشخصات نژاد و کالا</div>
-          </div>
-          <div class="step-item" id="step5">
-            <div class="step-number">05</div>
-            <div class="step-title">صدور نهایی مجوز</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Main Grid -->
-      <div class="dashboard-grid">
-        <!-- User Selection & Controls Card -->
-        <div class="card">
-          <div class="card-title">
-            <span>تنظیمات و صدور مجوز</span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="userSelect">انتخاب دامدار / کاربر سامانه:</label>
-            <select id="userSelect" class="form-select">
-              <option value="" disabled selected>در حال دریافت لیست کاربران...</option>
-            </select>
-          </div>
-
-          <!-- Selected User Details Box -->
-          <div class="user-preview" id="userPreviewBox" style="display: flex; flex-direction: column; gap: 0.85rem;">
-            <div style="display: flex; align-items: center; gap: 1rem;">
-              <div class="avatar-circle" id="userAvatar">؟</div>
-              <div class="user-info-text">
-                <div class="name" id="previewName">کاربری انتخاب نشده است</div>
-                <div class="username" id="previewUsername">نام کاربری: -</div>
+          <!-- Stepper Bar -->
+          <div class="stepper-card">
+            <div class="steps">
+              <div class="step-item active" id="step1">
+                <div class="step-number">01</div>
+                <div class="step-title">تنظیم کاربر و مقصد</div>
+              </div>
+              <div class="step-item" id="step2">
+                <div class="step-number">02</div>
+                <div class="step-title">ورود و حل کپچا</div>
+              </div>
+              <div class="step-item" id="step3">
+                <div class="step-number">03</div>
+                <div class="step-title">رهگیری و حمل کشتارگاه</div>
+              </div>
+              <div class="step-item" id="step4">
+                <div class="step-number">04</div>
+                <div class="step-title">مشخصات نژاد و کالا</div>
+              </div>
+              <div class="step-item" id="step5">
+                <div class="step-number">05</div>
+                <div class="step-title">صدور نهایی مجوز</div>
               </div>
             </div>
+          </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; border-top: 1px solid var(--color-hairline-dark); padding-top: 0.75rem;">
-              <div>
-                <label class="form-label">نژاد گله:</label>
-                <select id="breedSelect" class="form-select">
-                  <option value="راس">راس</option>
-                  <option value="کاب">کاب</option>
-                  <option value="ایندین ریورز">ایندین ریورز</option>
-                  <option value="آربور آکرز">آربور آکرز</option>
-                  <option value="هوبارد">هوبارد</option>
-                  <option value="لوهمن">لوهمن</option>
-                  <option value="آرين">آرين</option>
+          <!-- Main Grid -->
+          <div class="dashboard-grid">
+            <!-- User Selection & Controls Card -->
+            <div class="card">
+              <div class="card-title">
+                <span>تنظیمات و صدور مجوز</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="userSelect">انتخاب دامدار / کاربر سامانه:</label>
+                <select id="userSelect" class="form-select">
+                  <option value="" disabled selected>در حال دریافت لیست کاربران...</option>
                 </select>
               </div>
-              <div>
-                <label class="form-label">کد اپیدمیولوژیک:</label>
-                <input type="text" id="epidemInput" class="form-control" readonly>
+
+              <!-- Selected User Details Box -->
+              <div class="user-preview" id="userPreviewBox"
+                style="display: flex; flex-direction: column; gap: 0.85rem;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                  <div class="avatar-circle" id="userAvatar">؟</div>
+                  <div class="user-info-text">
+                    <div class="name" id="previewName">کاربری انتخاب نشده است</div>
+                    <div class="username" id="previewUsername">نام کاربری: -</div>
+                  </div>
+                </div>
+
+                <div
+                  style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; border-top: 1px solid var(--color-hairline-dark); padding-top: 0.75rem;">
+                  <div>
+                    <label class="form-label">نژاد گله:</label>
+                    <select id="breedSelect" class="form-select">
+                      <option value="راس">راس</option>
+                      <option value="کاب">کاب</option>
+                      <option value="ایندین ریورز">ایندین ریورز</option>
+                      <option value="آربور آکرز">آربور آکرز</option>
+                      <option value="هوبارد">هوبارد</option>
+                      <option value="لوهمن">لوهمن</option>
+                      <option value="آرين">آرين</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="form-label">کد اپیدمیولوژیک:</label>
+                    <input type="text" id="epidemInput" class="form-control" readonly>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="form-label">کد مجوز جوجه‌ریزی مبدا:</label>
+                  <input type="text" id="hatchInput" class="form-control" placeholder="مثال: 140510014674">
+                </div>
+              </div>
+
+              <!-- Destination & Quantity Controls -->
+              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.75rem;">
+                <div class="form-group">
+                  <label class="form-label" for="slaughterSelect">کشتارگاه مقصد (واحد جهاد):</label>
+                  <select id="slaughterSelect" class="form-select">
+                    <option value="" disabled selected>در حال بارگذاری کشتارگاه‌ها...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="quantityInput">تعداد (قطعه):</label>
+                  <input type="number" id="quantityInput" class="form-control" value="2000" min="1" step="100">
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-top: 0.5rem;">
+                <label
+                  style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-size: 0.825rem; color: var(--color-ink-white-muted);">
+                  <input type="checkbox" id="showBrowserCheck" checked
+                    style="width: 16px; height: 16px; accent-color: var(--color-primary);">
+                  <span>نمایش پنجره مرورگر هنگام اجرای عملیات (Headless نباشد)</span>
+                </label>
+              </div>
+
+              <div class="actions-row">
+                <button id="startBtn" class="btn btn-primary">
+                  <span>شروع صدور مجوز</span>
+                </button>
+                <button id="stopBtn" class="btn btn-danger" disabled>
+                  <span>توقف عملیات</span>
+                </button>
               </div>
             </div>
 
-            <div>
-              <label class="form-label">کد مجوز جوجه‌ریزی مبدا:</label>
-              <input type="text" id="hatchInput" class="form-control" placeholder="مثال: 140510014674">
+            <!-- Tracking Codes Panel -->
+            <div class="card">
+              <div class="card-title">
+                <span>کدهای رهگیری خودرو</span>
+                <button id="editCodesBtn" class="btn btn-sm"
+                  style="background: var(--color-surface-2); color: var(--color-ink-white); border: 1px solid var(--color-hairline-dark);">
+                  ویرایش کدها
+                </button>
+              </div>
+
+              <div class="codes-header">
+                <span class="badge badge-cyan" id="totalCodesBadge">تعداد کل: ۰</span>
+                <span class="badge badge-emerald" id="successCodesBadge">موفق: ۰</span>
+                <span class="badge badge-rose" id="failedCodesBadge">ناموفق: ۰</span>
+              </div>
+
+              <div class="codes-list-container" id="codesList">
+                <!-- Dynamic tracking codes rows -->
+              </div>
             </div>
           </div>
 
-          <!-- Destination & Quantity Controls -->
-          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.75rem;">
-            <div class="form-group">
-              <label class="form-label" for="slaughterSelect">کشتارگاه مقصد (واحد جهاد):</label>
-              <select id="slaughterSelect" class="form-select">
-                <option value="" disabled selected>در حال بارگذاری کشتارگاه‌ها...</option>
-              </select>
+          <!-- Session Permits Export Bar / History -->
+          <div class="card" id="sessionPermitsCard" style="margin-top: 1.5rem;">
+            <div class="card-title">
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span>📋 پروانه‌های صادر شده در نشست جاری</span>
+                <span class="badge" id="sessionPermitsBadge" style="background: var(--color-primary); color: #fff;">۰
+                  پروانه</span>
+              </div>
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button id="exportPermitsExcelBtn" class="btn btn-sm"
+                  style="background: #15803d; color: #fff; border: none; cursor: pointer; padding: 0.4rem 0.85rem;"
+                  title="دانلود فایل اکسل">
+                  📥 دانلود اکسل (.xlsx)
+                </button>
+                <button id="exportPermitsPdfBtn" class="btn btn-sm"
+                  style="background: #990000; color: #fff; border: none; cursor: pointer; padding: 0.4rem 0.85rem;"
+                  title="دانلود فایل پی‌دی‌اف">
+                  📄 دانلود پی‌دی‌اف (.pdf)
+                </button>
+                <button id="clearSessionPermitsBtn" class="btn btn-sm"
+                  style="background: var(--color-surface-2); color: var(--color-ink-white-muted); border: 1px solid var(--color-hairline-dark); cursor: pointer; padding: 0.4rem 0.75rem;">
+                  پاک‌سازی
+                </button>
+              </div>
             </div>
-            <div class="form-group">
-              <label class="form-label" for="quantityInput">تعداد (قطعه):</label>
-              <input type="number" id="quantityInput" class="form-control" value="2000" min="1" step="100">
+
+            <div
+              style="overflow-x: auto; max-height: 250px; border: 1px solid var(--color-hairline-dark); margin-top: 0.75rem;">
+              <table class="data-table" id="sessionPermitsTable">
+                <thead>
+                  <tr>
+                    <th style="width: 45px;">#</th>
+                    <th>مرغدار</th>
+                    <th>کد رهگیری خودرو</th>
+                    <th>کشتارگاه مقصد</th>
+                    <th>تعداد</th>
+                    <th>نژاد</th>
+                    <th>زمان صدور</th>
+                    <th style="text-align: center;">وضعیت</th>
+                  </tr>
+                </thead>
+                <tbody id="sessionPermitsTableBody">
+                  <tr>
+                    <td colspan="8" style="text-align: center; color: var(--color-ink-dim); padding: 1.5rem;">
+                      در این نشست هنوز مجوزی صادر نشده است. پس از کلیک روی «شروع صدور مجوز»، پروانه‌های تایید شده در
+                      اینجا جمع‌آوری می‌شوند.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </div>
-
-          <div class="form-group" style="margin-top: 0.5rem;">
-            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-size: 0.825rem; color: var(--color-ink-white-muted);">
-              <input type="checkbox" id="showBrowserCheck" checked style="width: 16px; height: 16px; accent-color: var(--color-primary);">
-              <span>نمایش پنجره مرورگر هنگام اجرای عملیات (Headless نباشد)</span>
-            </label>
-          </div>
-
-          <div class="actions-row">
-            <button id="startBtn" class="btn btn-primary">
-              <span>شروع صدور مجوز</span>
-            </button>
-            <button id="stopBtn" class="btn btn-danger" disabled>
-              <span>توقف عملیات</span>
-            </button>
           </div>
         </div>
 
-        <!-- Tracking Codes Panel -->
-        <div class="card">
-          <div class="card-title">
-            <span>کدهای رهگیری خودرو</span>
-            <button id="editCodesBtn" class="btn btn-sm" style="background: var(--color-surface-2); color: var(--color-ink-white); border: 1px solid var(--color-hairline-dark);">
-              ویرایش کدها
-            </button>
+        <!-- TAB 2: DISCHARGE CLEARANCE PANE (LOGIN.JS AUTOMATION) -->
+        <div id="dischargePane" class="tab-pane">
+          <div class="card" style="margin-bottom: 1.5rem;">
+            <div class="card-title">
+              <span>استعلام وضعیت گواهی‌ها و ثبت تایید تخلیه خودکار</span>
+              <span style="font-size: 0.75rem; color: var(--color-ink-white-muted); font-family: monospace;">(بر اساس ۴
+                گزارش خروجی و درون‌استانی)</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.25rem; align-items: flex-end;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" for="dischargeUserSelect">انتخاب دامدار / مرغداری برای بررسی تخلیه:</label>
+                <select id="dischargeUserSelect" class="form-select">
+                  <option value="" disabled selected>در حال بارگذاری کاربران...</option>
+                </select>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label
+                  style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-size: 0.825rem; color: var(--color-ink-white-muted); padding-bottom: 0.6rem;">
+                  <input type="checkbox" id="dischargeHeadlessCheck" checked
+                    style="width: 16px; height: 16px; accent-color: var(--color-primary);">
+                  <span>نمایش مرورگر هنگام کار (Headless نباشد)</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="actions-row" style="margin-top: 1.25rem;">
+              <button id="startDischargeBtn" class="btn btn-primary" style="flex: 2;">
+                <span>شروع استعلام و تایید تخلیه خودکار</span>
+              </button>
+              <button id="stopDischargeBtn" class="btn btn-danger" style="flex: 1;" disabled>
+                <span>توقف</span>
+              </button>
+            </div>
           </div>
 
-          <div class="codes-header">
-            <span class="badge badge-cyan" id="totalCodesBadge">تعداد کل: ۰</span>
-            <span class="badge badge-emerald" id="successCodesBadge">موفق: ۰</span>
-            <span class="badge badge-rose" id="failedCodesBadge">ناموفق: ۰</span>
+          <!-- Discharge Statistics Grid -->
+          <div class="stats-grid">
+            <div class="stat-card primary">
+              <div class="stat-value" id="statCheckedCount">۰</div>
+              <div class="stat-label">تعداد کل موارد تخلیه نشده</div>
+            </div>
+            <div class="stat-card success">
+              <div class="stat-value" id="statDischargedCount">۰</div>
+              <div class="stat-label">تایید تخلیه شده با موفقیت</div>
+            </div>
+            <div class="stat-card warning">
+              <div class="stat-value" id="statNoArrivalCount">۰</div>
+              <div class="stat-label">عدم وصول (مستثنی شده)</div>
+            </div>
           </div>
 
-          <div class="codes-list-container" id="codesList">
-            <!-- Dynamic tracking codes rows -->
+          <!-- Discharge Records Table -->
+          <div class="card" style="margin-bottom: 2rem;">
+            <div class="card-title" style="flex-wrap: wrap; gap: 0.75rem;">
+              <span>لیست گواهی‌های تایید تخلیه شده / در انتظار</span>
+              <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                <select id="pastReportsSelect" class="form-select"
+                  style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+                  <option value="">مشاهده گزارش‌های پیشین...</option>
+                </select>
+
+                <label
+                  style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; cursor: pointer; color: var(--color-ink-white); background: var(--color-surface-2); padding: 0.35rem 0.65rem; border: 1px solid var(--color-hairline-dark);">
+                  <input type="checkbox" id="includeNoArrivalCheck" checked
+                    style="accent-color: var(--color-primary); width: 15px; height: 15px;">
+                  <span>شامل موارد عدم وصول</span>
+                </label>
+
+                <button id="exportDischargeExcelBtn" class="btn btn-sm"
+                  style="background: #15803d; color: #fff; border: none; cursor: pointer; padding: 0.4rem 0.75rem;"
+                  title="دانلود اکسل گزارش تخلیه">
+                  📥 اکسل (.xlsx)
+                </button>
+                <button id="exportDischargePdfBtn" class="btn btn-sm"
+                  style="background: #990000; color: #fff; border: none; cursor: pointer; padding: 0.4rem 0.75rem;"
+                  title="دانلود پی‌دی‌اف گزارش تخلیه">
+                  📄 پی‌دی‌اف (.pdf)
+                </button>
+              </div>
+            </div>
+
+            <div style="overflow-x: auto; max-height: 400px; border: 1px solid var(--color-hairline-dark);">
+              <table class="data-table" id="dischargeTable">
+                <thead>
+                  <tr>
+                    <th style="width: 45px;">#</th>
+                    <th>دامدار / مرغدار</th>
+                    <th>کد رهگیری</th>
+                    <th>تاریخ صدور</th>
+                    <th>نوع گزارش</th>
+                    <th>تاریخ تخلیه ثبت‌شده</th>
+                    <th>وضعیت نهایی</th>
+                  </tr>
+                </thead>
+                <tbody id="dischargeTableBody">
+                  <tr>
+                    <td colspan="7" style="text-align: center; color: var(--color-ink-dim); padding: 2rem;">
+                      هنوز استعلامی اجرا نشده است. برای شروع دکمه «شروع استعلام و تایید تخلیه خودکار» را بزنید.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Session Permits Export Bar / History -->
-      <div class="card" id="sessionPermitsCard" style="margin-top: 1.5rem;">
-        <div class="card-title">
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span>📋 پروانه‌های صادر شده در نشست جاری</span>
-            <span class="badge" id="sessionPermitsBadge" style="background: var(--color-primary); color: #fff;">۰ پروانه</span>
+        <!-- TAB 3: ADMIN MANAGEMENT PANE -->
+        <div id="adminPane" class="tab-pane">
+          <!-- Admin Active Section Header -->
+          <div class="admin-pane-header">
+            <div class="admin-pane-title">
+              <h2 id="adminActiveTitle">👥 مدیریت مرغداران و کاربران سامانه</h2>
+              <p id="adminActiveDesc">مشاهده، جستجو، ثبت و ویرایش مشخصات مرغداران، رمزهای عبور و کدهای اپیدمیولوژیک</p>
+            </div>
+            <div class="db-status-badge" id="dbStatusBadge"
+              style="display: flex; align-items: center; gap: 0.5rem; background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); padding: 0.5rem 0.85rem; font-size: 0.8rem; border-radius: var(--rounded-none);">
+              <span id="dbStatusDot"
+                style="width: 8px; height: 8px; border-radius: 50%; background: #eab308; display: inline-block;"></span>
+              <span id="dbStatusText" style="color: var(--color-ink-white-muted);">در حال بررسی دیتابیس...</span>
+              <button id="syncSupabaseBtn" class="btn btn-secondary"
+                style="padding: 0.2rem 0.55rem; font-size: 0.72rem; margin-right: 0.4rem; display: none;"
+                title="ارسال اطلاعات محلی به سوپابیس">
+                🔄 همگام‌سازی با Supabase
+              </button>
+            </div>
           </div>
-          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-            <button id="exportPermitsExcelBtn" class="btn btn-sm" style="background: #15803d; color: #fff; border: none; cursor: pointer; padding: 0.4rem 0.85rem;" title="دانلود فایل اکسل">
-              📥 دانلود اکسل (.xlsx)
-            </button>
-            <button id="exportPermitsPdfBtn" class="btn btn-sm" style="background: #990000; color: #fff; border: none; cursor: pointer; padding: 0.4rem 0.85rem;" title="دانلود فایل پی‌دی‌اف">
-              📄 دانلود پی‌دی‌اف (.pdf)
-            </button>
-            <button id="clearSessionPermitsBtn" class="btn btn-sm" style="background: var(--color-surface-2); color: var(--color-ink-white-muted); border: 1px solid var(--color-hairline-dark); cursor: pointer; padding: 0.4rem 0.75rem;">
+
+          <!-- SECTION 1: USERS MANAGEMENT -->
+          <div id="adminUsersSection" class="admin-section active">
+            <div class="card">
+              <div class="admin-toolbar">
+                <div class="admin-search-box">
+                  <input type="text" id="userSearchInput" class="form-control"
+                    placeholder="جستجو بر اساس نام، نام کاربری، نژاد یا کدهای مرغدار...">
+                </div>
+                <button id="openAddUserModalBtn" class="btn btn-primary">
+                  + افزودن مرغدار جدید
+                </button>
+              </div>
+
+              <div class="table-container" style="margin-top: 1rem;">
+                <table class="data-table" id="adminUsersTable">
+                  <thead>
+                    <tr id="adminUsersTableHeadRow">
+                      <th>نام و نام خانوادگی</th>
+                      <th>نام کاربری</th>
+                      <th>کلمه عبور</th>
+                      <th class="admin-only-col" style="display: none;">اکانت ورود (Supabase Auth)</th>
+                      <th class="admin-only-col" style="display: none;">وضعیت قفل مرورگر</th>
+                      <th class="admin-only-col" style="display: none;">ثبت‌شده توسط</th>
+                      <th>نژاد گله</th>
+                      <th>کد اپیدمیولوژیک</th>
+                      <th>مجوز جوجه‌ریزی</th>
+                      <th style="text-align: center; width: 140px;">عملیات</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminUsersTableBody">
+                    <!-- Dynamically loaded -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 2: SLAUGHTERHOUSES MANAGEMENT -->
+          <div id="adminShSection" class="admin-section" style="display: none;">
+            <div class="card">
+              <div class="admin-toolbar">
+                <div class="admin-search-box">
+                  <input type="text" id="shSearchInput" class="form-control"
+                    placeholder="جستجو در نام یا شناسه جهاد کشاورزی کشتارگاه...">
+                </div>
+                <button id="openAddShModalBtn" class="btn btn-primary">
+                  + افزودن کشتارگاه جدید
+                </button>
+              </div>
+
+              <div class="table-container" style="margin-top: 1rem;">
+                <table class="data-table" id="adminShTable">
+                  <thead>
+                    <tr>
+                      <th style="width: 60px;">#</th>
+                      <th>نام کشتارگاه مقصد</th>
+                      <th>شناسه یکتای جهاد کشاورزی</th>
+                      <th style="text-align: center; width: 140px;">عملیات</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminShTableBody">
+                    <!-- Dynamically loaded -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 3: TRACKING CODES MANAGEMENT -->
+          <div id="adminCodesSection" class="admin-section" style="display: none;">
+            <div class="card">
+              <div class="admin-toolbar" style="flex-wrap: wrap; gap: 1rem;">
+                <div style="display: flex; gap: 0.5rem; flex: 1; min-width: 280px;">
+                  <input type="text" id="quickAddCodeInput" class="form-control"
+                    placeholder="درج کد رهگیری جدید (مثال: KD7H91A67)">
+                  <button id="quickAddCodeBtn" class="btn btn-primary" style="white-space: nowrap;">
+                    + افزودن کد
+                  </button>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button id="adminBulkEditCodesBtn" class="btn"
+                    style="background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); color: var(--color-ink-white);">
+                    📝 ویرایش دسته‌ای (Paste/Bulk)
+                  </button>
+                  <button id="adminClearAllCodesBtn" class="btn btn-danger" style="white-space: nowrap;">
+                    پاک‌سازی همه کدها
+                  </button>
+                </div>
+              </div>
+
+              <div class="admin-codes-info"
+                style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; margin-bottom: 0.75rem;">
+                <span style="font-size: 0.85rem; color: var(--color-ink-white-muted);">
+                  کدهای زیر در فرآیند صدور خودکار پروانه حمل به ترتیب اولویت بررسی و استفاده می‌شوند:
+                </span>
+                <input type="text" id="codeSearchInput" class="form-control form-control-sm" placeholder="فیلتر کدها..."
+                  style="max-width: 200px;">
+              </div>
+
+              <div class="codes-chips-grid" id="adminCodesChipsGrid">
+                <!-- Dynamically populated chips -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Terminal Logs (Shared for Both Workflows) -->
+        <div class="card terminal-card">
+          <div class="terminal-header">
+            <span
+              style="font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; color: var(--color-ink-white-muted); text-transform: uppercase;">کنسول
+              زنده سیستم و لاگ‌ها</span>
+            <button id="clearLogsBtn" class="btn btn-sm"
+              style="background: var(--color-surface-2); color: var(--color-ink-white-muted); border: 1px solid var(--color-hairline-dark);">
               پاک‌سازی
             </button>
           </div>
-        </div>
-
-        <div style="overflow-x: auto; max-height: 250px; border: 1px solid var(--color-hairline-dark); margin-top: 0.75rem;">
-          <table class="data-table" id="sessionPermitsTable">
-            <thead>
-              <tr>
-                <th style="width: 45px;">#</th>
-                <th>مرغدار</th>
-                <th>کد رهگیری خودرو</th>
-                <th>کشتارگاه مقصد</th>
-                <th>تعداد</th>
-                <th>نژاد</th>
-                <th>زمان صدور</th>
-                <th style="text-align: center;">وضعیت</th>
-              </tr>
-            </thead>
-            <tbody id="sessionPermitsTableBody">
-              <tr>
-                <td colspan="8" style="text-align: center; color: var(--color-ink-dim); padding: 1.5rem;">
-                  در این نشست هنوز مجوزی صادر نشده است. پس از کلیک روی «شروع صدور مجوز»، پروانه‌های تایید شده در اینجا جمع‌آوری می‌شوند.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 2: DISCHARGE CLEARANCE PANE (LOGIN.JS AUTOMATION) -->
-    <div id="dischargePane" class="tab-pane">
-      <div class="card" style="margin-bottom: 1.5rem;">
-        <div class="card-title">
-          <span>استعلام وضعیت گواهی‌ها و ثبت تایید تخلیه خودکار</span>
-          <span style="font-size: 0.75rem; color: var(--color-ink-white-muted); font-family: monospace;">(بر اساس ۴ گزارش خروجی و درون‌استانی)</span>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.25rem; align-items: flex-end;">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" for="dischargeUserSelect">انتخاب دامدار / مرغداری برای بررسی تخلیه:</label>
-            <select id="dischargeUserSelect" class="form-select">
-              <option value="" disabled selected>در حال بارگذاری کاربران...</option>
-            </select>
-          </div>
-
-          <div class="form-group" style="margin-bottom: 0;">
-            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-size: 0.825rem; color: var(--color-ink-white-muted); padding-bottom: 0.6rem;">
-              <input type="checkbox" id="dischargeHeadlessCheck" checked style="width: 16px; height: 16px; accent-color: var(--color-primary);">
-              <span>نمایش مرورگر هنگام کار (Headless نباشد)</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="actions-row" style="margin-top: 1.25rem;">
-          <button id="startDischargeBtn" class="btn btn-primary" style="flex: 2;">
-            <span>شروع استعلام و تایید تخلیه خودکار</span>
-          </button>
-          <button id="stopDischargeBtn" class="btn btn-danger" style="flex: 1;" disabled>
-            <span>توقف</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Discharge Statistics Grid -->
-      <div class="stats-grid">
-        <div class="stat-card primary">
-          <div class="stat-value" id="statCheckedCount">۰</div>
-          <div class="stat-label">تعداد کل موارد تخلیه نشده</div>
-        </div>
-        <div class="stat-card success">
-          <div class="stat-value" id="statDischargedCount">۰</div>
-          <div class="stat-label">تایید تخلیه شده با موفقیت</div>
-        </div>
-        <div class="stat-card warning">
-          <div class="stat-value" id="statNoArrivalCount">۰</div>
-          <div class="stat-label">عدم وصول (مستثنی شده)</div>
-        </div>
-      </div>
-
-      <!-- Discharge Records Table -->
-      <div class="card" style="margin-bottom: 2rem;">
-        <div class="card-title" style="flex-wrap: wrap; gap: 0.75rem;">
-          <span>لیست گواهی‌های تایید تخلیه شده / در انتظار</span>
-          <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
-            <select id="pastReportsSelect" class="form-select" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem;">
-              <option value="">مشاهده گزارش‌های پیشین...</option>
-            </select>
-
-            <label style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; cursor: pointer; color: var(--color-ink-white); background: var(--color-surface-2); padding: 0.35rem 0.65rem; border: 1px solid var(--color-hairline-dark);">
-              <input type="checkbox" id="includeNoArrivalCheck" checked style="accent-color: var(--color-primary); width: 15px; height: 15px;">
-              <span>شامل موارد عدم وصول</span>
-            </label>
-
-            <button id="exportDischargeExcelBtn" class="btn btn-sm" style="background: #15803d; color: #fff; border: none; cursor: pointer; padding: 0.4rem 0.75rem;" title="دانلود اکسل گزارش تخلیه">
-              📥 اکسل (.xlsx)
-            </button>
-            <button id="exportDischargePdfBtn" class="btn btn-sm" style="background: #990000; color: #fff; border: none; cursor: pointer; padding: 0.4rem 0.75rem;" title="دانلود پی‌دی‌اف گزارش تخلیه">
-              📄 پی‌دی‌اف (.pdf)
-            </button>
-          </div>
-        </div>
-
-        <div style="overflow-x: auto; max-height: 400px; border: 1px solid var(--color-hairline-dark);">
-          <table class="data-table" id="dischargeTable">
-            <thead>
-              <tr>
-                <th style="width: 45px;">#</th>
-                <th>دامدار / مرغدار</th>
-                <th>کد رهگیری</th>
-                <th>تاریخ صدور</th>
-                <th>نوع گزارش</th>
-                <th>تاریخ تخلیه ثبت‌شده</th>
-                <th>وضعیت نهایی</th>
-              </tr>
-            </thead>
-            <tbody id="dischargeTableBody">
-              <tr>
-                <td colspan="7" style="text-align: center; color: var(--color-ink-dim); padding: 2rem;">
-                  هنوز استعلامی اجرا نشده است. برای شروع دکمه «شروع استعلام و تایید تخلیه خودکار» را بزنید.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 3: ADMIN MANAGEMENT PANE -->
-    <div id="adminPane" class="tab-pane">
-      <!-- Admin Active Section Header -->
-      <div class="admin-pane-header">
-        <div class="admin-pane-title">
-          <h2 id="adminActiveTitle">👥 مدیریت مرغداران و کاربران سامانه</h2>
-          <p id="adminActiveDesc">مشاهده، جستجو، ثبت و ویرایش مشخصات مرغداران، رمزهای عبور و کدهای اپیدمیولوژیک</p>
-        </div>
-      </div>
-
-      <!-- SECTION 1: USERS MANAGEMENT -->
-      <div id="adminUsersSection" class="admin-section active">
-        <div class="card">
-          <div class="admin-toolbar">
-            <div class="admin-search-box">
-              <input type="text" id="userSearchInput" class="form-control" placeholder="جستجو بر اساس نام، نام کاربری، نژاد یا کدهای مرغدار...">
-            </div>
-            <button id="openAddUserModalBtn" class="btn btn-primary">
-              + افزودن مرغدار جدید
-            </button>
-          </div>
-
-          <div class="table-container" style="margin-top: 1rem;">
-            <table class="data-table" id="adminUsersTable">
-              <thead>
-                <tr>
-                  <th>نام و نام خانوادگی</th>
-                  <th>نام کاربری</th>
-                  <th>کلمه عبور</th>
-                  <th>نژاد گله</th>
-                  <th>کد اپیدمیولوژیک</th>
-                  <th>مجوز جوجه‌ریزی</th>
-                  <th style="text-align: center; width: 140px;">عملیات</th>
-                </tr>
-              </thead>
-              <tbody id="adminUsersTableBody">
-                <!-- Dynamically loaded -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- SECTION 2: SLAUGHTERHOUSES MANAGEMENT -->
-      <div id="adminShSection" class="admin-section" style="display: none;">
-        <div class="card">
-          <div class="admin-toolbar">
-            <div class="admin-search-box">
-              <input type="text" id="shSearchInput" class="form-control" placeholder="جستجو در نام یا شناسه جهاد کشاورزی کشتارگاه...">
-            </div>
-            <button id="openAddShModalBtn" class="btn btn-primary">
-              + افزودن کشتارگاه جدید
-            </button>
-          </div>
-
-          <div class="table-container" style="margin-top: 1rem;">
-            <table class="data-table" id="adminShTable">
-              <thead>
-                <tr>
-                  <th style="width: 60px;">#</th>
-                  <th>نام کشتارگاه مقصد</th>
-                  <th>شناسه یکتای جهاد کشاورزی</th>
-                  <th style="text-align: center; width: 140px;">عملیات</th>
-                </tr>
-              </thead>
-              <tbody id="adminShTableBody">
-                <!-- Dynamically loaded -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- SECTION 3: TRACKING CODES MANAGEMENT -->
-      <div id="adminCodesSection" class="admin-section" style="display: none;">
-        <div class="card">
-          <div class="admin-toolbar" style="flex-wrap: wrap; gap: 1rem;">
-            <div style="display: flex; gap: 0.5rem; flex: 1; min-width: 280px;">
-              <input type="text" id="quickAddCodeInput" class="form-control" placeholder="درج کد رهگیری جدید (مثال: KD7H91A67)">
-              <button id="quickAddCodeBtn" class="btn btn-primary" style="white-space: nowrap;">
-                + افزودن کد
-              </button>
-            </div>
-            <div style="display: flex; gap: 0.5rem;">
-              <button id="adminBulkEditCodesBtn" class="btn" style="background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); color: var(--color-ink-white);">
-                📝 ویرایش دسته‌ای (Paste/Bulk)
-              </button>
-              <button id="adminClearAllCodesBtn" class="btn btn-danger" style="white-space: nowrap;">
-                پاک‌سازی همه کدها
-              </button>
+          <div class="terminal-window" id="terminalWindow">
+            <div class="log-line">
+              <span class="log-time">[--:--:--]</span>
+              <span class="log-info">سیستم آماده دریافت دستور است.</span>
             </div>
           </div>
-
-          <div class="admin-codes-info" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; margin-bottom: 0.75rem;">
-            <span style="font-size: 0.85rem; color: var(--color-ink-white-muted);">
-              کدهای زیر در فرآیند صدور خودکار پروانه حمل به ترتیب اولویت بررسی و استفاده می‌شوند:
-            </span>
-            <input type="text" id="codeSearchInput" class="form-control form-control-sm" placeholder="فیلتر کدها..." style="max-width: 200px;">
-          </div>
-
-          <div class="codes-chips-grid" id="adminCodesChipsGrid">
-            <!-- Dynamically populated chips -->
-          </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Live Terminal Logs (Shared for Both Workflows) -->
-    <div class="card terminal-card">
-      <div class="terminal-header">
-        <span style="font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; color: var(--color-ink-white-muted); text-transform: uppercase;">کنسول زنده سیستم و لاگ‌ها</span>
-        <button id="clearLogsBtn" class="btn btn-sm" style="background: var(--color-surface-2); color: var(--color-ink-white-muted); border: 1px solid var(--color-hairline-dark);">
-          پاک‌سازی
-        </button>
-      </div>
-      <div class="terminal-window" id="terminalWindow">
-        <div class="log-line">
-          <span class="log-time">[--:--:--]</span>
-          <span class="log-info">سیستم آماده دریافت دستور است.</span>
-        </div>
-      </div>
-    </div>
       </main>
     </div>
   </div>
@@ -490,15 +612,19 @@
   <!-- Captcha Prompt Modal (Shared) -->
   <div class="modal-overlay" id="captchaModal">
     <div class="modal-content">
-      <h3 style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">تأیید کد امنیتی</h3>
-      <p style="font-size: 0.8rem; color: var(--color-ink-white-muted);">لطفاً حروف یا اعداد تصویر زیر را وارد کرده و Enter بزنید:</p>
-      
+      <h3
+        style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px;">
+        تأیید کد امنیتی</h3>
+      <p style="font-size: 0.8rem; color: var(--color-ink-white-muted);">لطفاً حروف یا اعداد تصویر زیر را وارد کرده و
+        Enter بزنید:</p>
+
       <div class="captcha-img-box">
         <img id="captchaImage" src="" alt="کد امنیتی در حال بارگذاری...">
       </div>
 
       <div class="form-group">
-        <input type="text" id="captchaInput" class="form-control captcha-input" placeholder="کد کپچا" maxlength="6" autocomplete="off">
+        <input type="text" id="captchaInput" class="form-control captcha-input" placeholder="کد کپچا" maxlength="6"
+          autocomplete="off">
       </div>
 
       <div class="actions-row" style="margin-top: 1rem;">
@@ -506,17 +632,22 @@
           تایید و ورود
         </button>
       </div>
-      <div id="captchaErrorText" style="color: var(--color-primary); font-size: 0.8rem; margin-top: 0.6rem; display: none;"></div>
+      <div id="captchaErrorText"
+        style="color: var(--color-primary); font-size: 0.8rem; margin-top: 0.6rem; display: none;"></div>
     </div>
   </div>
 
   <!-- Edit Codes Modal -->
   <div class="modal-overlay" id="editCodesModal">
     <div class="modal-content" style="max-width: 480px; text-align: right;">
-      <h3 style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">ویرایش کدهای رهگیری</h3>
-      <p style="font-size: 0.8rem; color: var(--color-ink-white-muted); margin-bottom: 1rem;">کدهای رهگیری را خط به خط وارد کنید:</p>
+      <h3
+        style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">
+        ویرایش کدهای رهگیری</h3>
+      <p style="font-size: 0.8rem; color: var(--color-ink-white-muted); margin-bottom: 1rem;">کدهای رهگیری را خط به خط
+        وارد کنید:</p>
 
-      <textarea id="codesTextarea" class="form-control" rows="10" style="font-family: monospace; font-size: 0.9rem; resize: vertical; direction: ltr;"></textarea>
+      <textarea id="codesTextarea" class="form-control" rows="10"
+        style="font-family: monospace; font-size: 0.9rem; resize: vertical; direction: ltr;"></textarea>
 
       <div class="actions-row" style="margin-top: 1.25rem;">
         <button id="saveCodesBtn" class="btn btn-primary" style="flex: 2;">
@@ -532,8 +663,11 @@
   <!-- User Add / Edit Modal -->
   <div class="modal-overlay" id="userModal">
     <div class="modal-content" style="max-width: 560px; text-align: right;">
-      <h3 id="userModalTitle" style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">افزودن مرغدار جدید</h3>
-      <p style="font-size: 0.8rem; color: var(--color-ink-white-muted); margin-bottom: 1.25rem;">مشخصات کاربر و اطلاعات گله را با دقت وارد فرمایید:</p>
+      <h3 id="userModalTitle"
+        style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">
+        افزودن مرغدار جدید</h3>
+      <p style="font-size: 0.8rem; color: var(--color-ink-white-muted); margin-bottom: 1.25rem;">مشخصات کاربر و اطلاعات
+        گله را با دقت وارد فرمایید:</p>
 
       <form id="userForm" onsubmit="return false;">
         <input type="hidden" id="userModalOriginalUsername">
@@ -547,7 +681,8 @@
 
           <div class="form-group">
             <label class="form-label">نام کاربری سامانه دامپزشکی: *</label>
-            <input type="text" id="userModalUsername" class="form-control" placeholder="مثال: PO42416" style="direction: ltr;" required>
+            <input type="text" id="userModalUsername" class="form-control" placeholder="مثال: PO42416"
+              style="direction: ltr;" required>
           </div>
         </div>
 
@@ -555,8 +690,11 @@
           <div class="form-group">
             <label class="form-label">کلمه عبور سامانه: *</label>
             <div style="position: relative;">
-              <input type="password" id="userModalPassword" class="form-control" placeholder="رمز عبور" style="direction: ltr; padding-left: 2.2rem;" required>
-              <button type="button" id="togglePasswordVisibilityBtn" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--color-ink-white-muted); cursor: pointer; font-size: 0.9rem;" title="نمایش/مخفی‌سازی رمز">👁️</button>
+              <input type="password" id="userModalPassword" class="form-control" placeholder="رمز عبور"
+                style="direction: ltr; padding-left: 2.2rem;" required>
+              <button type="button" id="togglePasswordVisibilityBtn"
+                style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--color-ink-white-muted); cursor: pointer; font-size: 0.9rem;"
+                title="نمایش/مخفی‌سازی رمز">👁️</button>
             </div>
           </div>
 
@@ -576,22 +714,34 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
           <div class="form-group">
             <label class="form-label">کد اپیدمیولوژیک مرغداری:</label>
-            <input type="text" id="userModalEpidemiologic" class="form-control" placeholder="مثال: 10140330166" maxlength="15" style="direction: ltr;">
+            <input type="text" id="userModalEpidemiologic" class="form-control" placeholder="مثال: 10140330166"
+              maxlength="15" style="direction: ltr;">
           </div>
 
           <div class="form-group">
             <label class="form-label">کد مجوز جوجه‌ریزی:</label>
-            <input type="text" id="userModalHatching" class="form-control" placeholder="مثال: 140510014674" maxlength="15" style="direction: ltr;">
+            <input type="text" id="userModalHatching" class="form-control" placeholder="مثال: 140510014674"
+              maxlength="15" style="direction: ltr;">
           </div>
         </div>
 
-        <div id="userModalError" style="color: var(--color-primary); font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
+        <div class="form-group" id="userModalEmailGroup" style="margin-top: 0.85rem;">
+          <label class="form-label">ایمیل مرغدار (جهت ایجاد اکانت ورود در Supabase Auth):</label>
+          <input type="email" id="userModalEmail" class="form-control" placeholder="مثال: farmer@gmail.com"
+            style="direction: ltr;">
+          <small style="color: var(--color-ink-dim); font-size: 0.72rem; display: block; margin-top: 4px;">مرغدار با این
+            ایمیل و همان کلمه عبور بالا می‌تواند وارد حساب خود شود.</small>
+        </div>
+
+        <div id="userModalError"
+          style="color: var(--color-primary); font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
 
         <div class="actions-row" style="margin-top: 1.5rem;">
           <button type="button" id="saveUserModalBtn" class="btn btn-primary" style="flex: 2;">
             ذخیره اطلاعات
           </button>
-          <button type="button" id="cancelUserModalBtn" class="btn" style="background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); color: var(--color-ink-white); flex: 1;">
+          <button type="button" id="cancelUserModalBtn" class="btn"
+            style="background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); color: var(--color-ink-white); flex: 1;">
             انصراف
           </button>
         </div>
@@ -602,8 +752,11 @@
   <!-- Slaughterhouse Add / Edit Modal -->
   <div class="modal-overlay" id="shModal">
     <div class="modal-content" style="max-width: 480px; text-align: right;">
-      <h3 id="shModalTitle" style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">افزودن کشتارگاه جدید</h3>
-      <p style="font-size: 0.8rem; color: var(--color-ink-white-muted); margin-bottom: 1.25rem;">نام کشتارگاه و شناسه یکتای ۱۲ رقمی جهاد کشاورزی را وارد کنید:</p>
+      <h3 id="shModalTitle"
+        style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;">
+        افزودن کشتارگاه جدید</h3>
+      <p style="font-size: 0.8rem; color: var(--color-ink-white-muted); margin-bottom: 1.25rem;">نام کشتارگاه و شناسه
+        یکتای ۱۲ رقمی جهاد کشاورزی را وارد کنید:</p>
 
       <form id="shForm" onsubmit="return false;">
         <input type="hidden" id="shModalOriginalCode">
@@ -616,16 +769,19 @@
 
         <div class="form-group">
           <label class="form-label">شناسه یکتای واحد جهاد کشاورزی: *</label>
-          <input type="text" id="shModalCode" class="form-control" placeholder="مثال: 190805534221" maxlength="15" style="direction: ltr;" required>
+          <input type="text" id="shModalCode" class="form-control" placeholder="مثال: 190805534221" maxlength="15"
+            style="direction: ltr;" required>
         </div>
 
-        <div id="shModalError" style="color: var(--color-primary); font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
+        <div id="shModalError"
+          style="color: var(--color-primary); font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
 
         <div class="actions-row" style="margin-top: 1.5rem;">
           <button type="button" id="saveShModalBtn" class="btn btn-primary" style="flex: 2;">
             ذخیره اطلاعات
           </button>
-          <button type="button" id="cancelShModalBtn" class="btn" style="background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); color: var(--color-ink-white); flex: 1;">
+          <button type="button" id="cancelShModalBtn" class="btn"
+            style="background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); color: var(--color-ink-white); flex: 1;">
             انصراف
           </button>
         </div>
@@ -636,8 +792,11 @@
   <!-- Confirm Delete Modal -->
   <div class="modal-overlay" id="confirmDeleteModal">
     <div class="modal-content" style="max-width: 440px; text-align: right;">
-      <h3 style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--color-primary); margin-bottom: 0.75rem;">تأیید حذف</h3>
-      <p id="deleteModalMsg" style="font-size: 0.9rem; color: var(--color-ink-white); margin-bottom: 1.5rem; line-height: 1.6;">
+      <h3
+        style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--color-primary); margin-bottom: 0.75rem;">
+        تأیید حذف</h3>
+      <p id="deleteModalMsg"
+        style="font-size: 0.9rem; color: var(--color-ink-white); margin-bottom: 1.5rem; line-height: 1.6;">
         آیا از حذف این مورد اطمینان دارید؟ این عملیات غیرقابل بازگشت است.
       </p>
 
@@ -645,7 +804,85 @@
         <button id="confirmDeleteBtn" class="btn btn-danger" style="flex: 1;">
           بله، حذف شود
         </button>
-        <button id="cancelDeleteBtn" class="btn" style="background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); color: var(--color-ink-white); flex: 1;">
+        <button id="cancelDeleteBtn" class="btn"
+          style="background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); color: var(--color-ink-white); flex: 1;">
+          انصراف
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Supabase Auth Account Credentials -->
+  <div class="modal-overlay" id="authCredentialsModal">
+    <div class="modal-content" style="max-width: 480px; text-align: right;">
+      <h3
+        style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--color-ink-white); margin-bottom: 0.5rem;">
+        🔑 اطلاعات اکانت ورود مرغدار (Supabase Auth)</h3>
+      <p style="font-size: 0.8rem; color: var(--color-ink-white-muted); margin-bottom: 1.25rem;">اکانت مرغدار در پایگاه
+        داده Supabase ثبت شد. می‌توانید این متن را کپی کرده و برای مرغدار ارسال نمایید:</p>
+
+      <div
+        style="background: var(--color-surface-2); border: 1px solid var(--color-hairline-dark); padding: 1rem; border-radius: var(--rounded-none); margin-bottom: 1rem;">
+        <div style="font-size: 0.85rem; margin-bottom: 0.5rem;">
+          <span style="color: var(--color-ink-dim);">نام مرغدار:</span>
+          <strong id="credFarmerName" style="color: var(--color-ink-white); margin-right: 0.4rem;"></strong>
+        </div>
+        <div style="font-size: 0.85rem; margin-bottom: 0.5rem;">
+          <span style="color: var(--color-ink-dim);">ایمیل ورود:</span>
+          <code id="credEmail"
+            style="color: #60a5fa; direction: ltr; display: inline-block; margin-right: 0.4rem; font-family: monospace;"></code>
+        </div>
+        <div style="font-size: 0.85rem; margin-bottom: 0.5rem;">
+          <span style="color: var(--color-ink-dim);">رمز عبور ورود:</span>
+          <code id="credPassword"
+            style="color: #4ade80; direction: ltr; display: inline-block; margin-right: 0.4rem; font-weight: bold; font-family: monospace;"></code>
+        </div>
+        <div
+          style="font-size: 0.85rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--color-hairline-dark); color: var(--color-ink-white-muted); font-size: 0.78rem;">
+          💡 مرغدار می‌تواند با این ایمیل و رمز عبور از طریق دکمه «ورود مرغدار» در بالای صفحه وارد سامانه شود.
+        </div>
+      </div>
+
+      <div class="actions-row">
+        <button type="button" id="copyCredMessageBtn" class="btn btn-primary" style="flex: 2;">
+          📋 کپی متن پیام برای ارسال به مرغدار
+        </button>
+        <button type="button" id="closeCredModalBtn" class="btn btn-secondary" style="flex: 1;">
+          بستن
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Farmer Login via Supabase Auth -->
+  <div class="modal-overlay" id="farmerLoginModal">
+    <div class="modal-content" style="max-width: 420px; text-align: right;">
+      <h3
+        style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--color-ink-white); margin-bottom: 0.5rem;">
+        🔑 ورود مرغدار به سامانه</h3>
+      <p style="font-size: 0.8rem; color: var(--color-ink-white-muted); margin-bottom: 1.25rem;">ایمیل و رمز عبور
+        ثبت‌شده در Supabase Auth را وارد فرمایید:</p>
+
+      <div class="form-group" style="margin-bottom: 0.85rem;">
+        <label class="form-label">ایمیل مرغدار: *</label>
+        <input type="email" id="loginEmailInput" class="form-control" placeholder="مثال: farmer@gmail.com"
+          style="direction: ltr;" required>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label">رمز عبور: *</label>
+        <input type="password" id="loginPasswordInput" class="form-control" placeholder="••••••••"
+          style="direction: ltr;" required>
+      </div>
+
+      <div id="loginErrorMsg"
+        style="color: var(--color-primary); font-size: 0.82rem; margin-bottom: 1rem; display: none;"></div>
+
+      <div class="actions-row">
+        <button type="button" id="submitLoginBtn" class="btn btn-primary" style="flex: 2;">
+          تایید و ورود به حساب
+        </button>
+        <button type="button" id="cancelLoginBtn" class="btn btn-secondary" style="flex: 1;">
           انصراف
         </button>
       </div>
@@ -655,6 +892,7 @@
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="js/app.js"></script>
+  <script src="/js/app.js"></script>
 </body>
+
 </html>

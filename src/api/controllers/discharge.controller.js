@@ -10,13 +10,13 @@ class DischargeController {
     static async startDischarge(req, res) {
         try {
             const { username, headless } = req.body;
-            const allUsers = UsersRepository.getAllUsers();
+            const allUsers = await UsersRepository.getAllUsers();
             let targetUsers = [];
 
             if (!username || username === 'ALL') {
                 targetUsers = allUsers;
             } else {
-                const user = UsersRepository.findByUsername(username);
+                const user = await UsersRepository.findByUsername(username);
                 if (!user) {
                     return res.status(404).json({ success: false, error: 'کاربر مورد نظر یافت نشد.' });
                 }

@@ -74,9 +74,9 @@ class PermitController {
                 return res.status(400).json({ success: false, error: 'نام کاربری الزامی است.' });
             }
 
-            const user = UsersRepository.findByUsername(username);
+            const user = await UsersRepository.findByUsername(username);
             if (!user) {
-                return res.status(404).json({ success: false, error: 'کاربر مورد نظر در users.json یافت نشد.' });
+                return res.status(404).json({ success: false, error: 'کاربر مورد نظر یافت نشد.' });
             }
 
             // Create a local copy so runtime overrides don't pollute the persistent file unexpectedly

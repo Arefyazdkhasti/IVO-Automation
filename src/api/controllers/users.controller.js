@@ -1,42 +1,66 @@
 const UsersRepository = require('../../features/users/users.repository');
+const supabaseService = require('../../services/supabase.service');
 
 class UsersController {
+    // ==========================================
+    // Database & Supabase Status
+    // ==========================================
+
+    static async getDatabaseStatus(req, res) {
+        try {
+            const status = await supabaseService.checkStatus();
+            res.json({ success: true, ...status });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    }
+
+    static async syncToSupabase(req, res) {
+        try {
+            const localUsers = UsersRepository.getLocalUsers();
+            const result = await supabaseService.syncUsersFromLocal(localUsers);
+            res.json({ success: true, ...result });
+        } catch (err) {
+            res.status(400).json({ success: false, error: err.message });
+        }
+    }
+
     // ==========================================
     // Users Management Handlers
     // ==========================================
 
-    static getUsers(req, res) {
+    static async getUsers(req, res) {
         try {
-            const users = UsersRepository.getAllUsers();
+            const users = await UsersRepository.getAllUsers(req.user);
             res.json({ success: true, users });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
         }
     }
 
-    static createUser(req, res) {
+    static async createUser(req, res) {
         try {
-            const newUser = UsersRepository.createUser(req.body);
+            const newUser = await UsersRepository.createUser(req.body, req.user);
             res.status(201).json({ success: true, message: 'کاربر با موفقیت اضافه شد.', user: newUser });
         } catch (err) {
             res.status(400).json({ success: false, error: err.message });
         }
     }
 
-    static updateUser(req, res) {
+    static async updateUser(req, res) {
         try {
             const { username } = req.params;
-            const updatedUser = UsersRepository.updateUser(username, req.body);
+            const updatedUser = await UsersRepository.updateUser(username, req.body, req.user);
             res.json({ success: true, message: 'اطلاعات کاربر با موفقیت به‌روزرسانی شد.', user: updatedUser });
         } catch (err) {
             res.status(400).json({ success: false, error: err.message });
         }
     }
 
-    static deleteUser(req, res) {
+    static async deleteUser(req, res) {
         try {
             const { username } = req.params;
-            UsersRepository.deleteUser(username);
+            await UsersRepository.deleteUser(username, req.user);
             res.json({ success: true, message: `کاربر ${username} با موفقیت حذف شد.` });
         } catch (err) {
             res.status(400).json({ success: false, error: err.message });

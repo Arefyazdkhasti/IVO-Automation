@@ -1,3 +1,338 @@
+// ==========================================================
+// IVO AUTOMATION - DEVICE FINGERPRINT & ROUTE-BASED ENGINE
+// ==========================================================
+
+let cachedDeviceFingerprint = null;
+
+// Fallback deterministic hardware fingerprint generator
+function generateHardwareFallback() {
+  const components = [
+    navigator.userAgent,
+    navigator.language,
+    (window.screen ? window.screen.width + 'x' + window.screen.height + 'x' + window.screen.colorDepth : 'screen'),
+    navigator.hardwareConcurrency || 4,
+    navigator.deviceMemory || 8,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+    (() => {
+      try {
+        const c = document.createElement('canvas');
+        const ctx = c.getContext('2d');
+        ctx.textBaseline = 'top';
+        ctx.font = "14px 'Arial'";
+        ctx.fillStyle = '#f60';
+        ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = '#069';
+        ctx.fillText('IVO-SECURITY-2026', 2, 15);
+        return c.toDataURL();
+      } catch (e) {
+        return 'no-canvas';
+      }
+    })()
+  ].join('###');
+
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < components.length; i++) {
+    hash ^= components.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return 'fp_' + (hash >>> 0).toString(16);
+}
+
+async function getDeviceFingerprint() {
+  if (cachedDeviceFingerprint) return cachedDeviceFingerprint;
+  try {
+    if (window.FingerprintJS && typeof window.FingerprintJS.load === 'function') {
+      const fp = await window.FingerprintJS.load();
+      const result = await fp.get();
+      if (result && result.visitorId) {
+        cachedDeviceFingerprint = result.visitorId;
+        return cachedDeviceFingerprint;
+      }
+    }
+  } catch (err) {
+    console.warn('FingerprintJS load error, using fallback:', err);
+  }
+  cachedDeviceFingerprint = generateHardwareFallback();
+  return cachedDeviceFingerprint;
+}
+
+// Global Fetch Interceptor to include Auth Token and Device Fingerprint
+const originalFetch = window.fetch;
+window.fetch = async function (url, options = {}) {
+  const urlStr = typeof url === 'string' ? url : (url.url || '');
+  if (urlStr.startsWith('/api')) {
+    options = options || {};
+    options.headers = options.headers || {};
+    const token = localStorage.getItem('ivo_auth_token');
+    const fp = await getDeviceFingerprint();
+
+    if (options.headers instanceof Headers) {
+      if (token) options.headers.set('Authorization', 'Bearer ' + token);
+      if (fp) options.headers.set('x-device-fingerprint', fp);
+    } else {
+      if (token) options.headers['Authorization'] = 'Bearer ' + token;
+      if (fp) options.headers['x-device-fingerprint'] = fp;
+    }
+  }
+
+  const response = await originalFetch(url, options);
+
+  // If unauthorized on protected endpoint
+  if ((response.status === 401 || response.status === 403) && urlStr.startsWith('/api') && !urlStr.includes('/api/auth/login')) {
+    try {
+      const clone = response.clone();
+      const errData = await clone.json();
+      if (errData.requiresLogin || errData.deviceMismatch) {
+        handleAuthRejection(errData.error || 'نشست شما معتبر نیست. لطفاً مجدداً وارد شوید.');
+      }
+    } catch (e) { }
+  }
+
+  return response;
+};
+
+function handleAuthRejection(message) {
+  localStorage.removeItem('ivo_auth_token');
+  localStorage.removeItem('ivo_logged_in_user');
+  updateAuthUI();
+  router.navigate('/login');
+  showToast(message, 'error');
+}
+
+
+// ==========================================================
+// Global Tab and View Switching Functions
+// ==========================================================
+function activateMenu(targetId) {
+  const tabPermitBtn = document.getElementById('tabPermitBtn');
+  const tabDischargeBtn = document.getElementById('tabDischargeBtn');
+  const subtabUsersBtn = document.getElementById('subtabUsersBtn');
+  const subtabShBtn = document.getElementById('subtabShBtn');
+  const subtabCodesBtn = document.getElementById('subtabCodesBtn');
+
+  const permitPane = document.getElementById('permitPane');
+  const dischargePane = document.getElementById('dischargePane');
+  const adminPane = document.getElementById('adminPane');
+
+  [tabPermitBtn, tabDischargeBtn, subtabUsersBtn, subtabShBtn, subtabCodesBtn].forEach((btn) => {
+    if (btn) btn.classList.toggle('active', btn.id === targetId);
+  });
+
+  if (targetId === 'tabPermitBtn') {
+    if (permitPane) {
+      permitPane.classList.add('active');
+      permitPane.style.display = 'block';
+    }
+    if (dischargePane) {
+      dischargePane.classList.remove('active');
+      dischargePane.style.display = 'none';
+    }
+    if (adminPane) {
+      adminPane.classList.remove('active');
+      adminPane.style.display = 'none';
+    }
+    if (typeof currentWorkflow !== 'undefined') currentWorkflow = 'permit';
+  } else if (targetId === 'tabDischargeBtn') {
+    if (dischargePane) {
+      dischargePane.classList.add('active');
+      dischargePane.style.display = 'block';
+    }
+    if (permitPane) {
+      permitPane.classList.remove('active');
+      permitPane.style.display = 'none';
+    }
+    if (adminPane) {
+      adminPane.classList.remove('active');
+      adminPane.style.display = 'none';
+    }
+    if (typeof currentWorkflow !== 'undefined') currentWorkflow = 'discharge';
+  } else {
+    // Admin Pane
+    if (adminPane) {
+      adminPane.classList.add('active');
+      adminPane.style.display = 'block';
+    }
+    if (permitPane) {
+      permitPane.classList.remove('active');
+      permitPane.style.display = 'none';
+    }
+    if (dischargePane) {
+      dischargePane.classList.remove('active');
+      dischargePane.style.display = 'none';
+    }
+    if (typeof currentWorkflow !== 'undefined') currentWorkflow = 'admin';
+  }
+}
+
+function showAdminSection(sec) {
+  const targetMap = {
+    users: 'subtabUsersBtn',
+    sh: 'subtabShBtn',
+    codes: 'subtabCodesBtn'
+  };
+  activateMenu(targetMap[sec] || 'subtabUsersBtn');
+
+  const adminUsersSection = document.getElementById('adminUsersSection');
+  const adminShSection = document.getElementById('adminShSection');
+  const adminCodesSection = document.getElementById('adminCodesSection');
+  const adminActiveTitle = document.getElementById('adminActiveTitle');
+  const adminActiveDesc = document.getElementById('adminActiveDesc');
+
+  if (adminUsersSection) {
+    adminUsersSection.classList.toggle('active', sec === 'users');
+    adminUsersSection.style.display = sec === 'users' ? 'block' : 'none';
+  }
+  if (adminShSection) {
+    adminShSection.classList.toggle('active', sec === 'sh');
+    adminShSection.style.display = sec === 'sh' ? 'block' : 'none';
+  }
+  if (adminCodesSection) {
+    adminCodesSection.classList.toggle('active', sec === 'codes');
+    adminCodesSection.style.display = sec === 'codes' ? 'block' : 'none';
+  }
+
+  if (adminActiveTitle && adminActiveDesc) {
+    if (sec === 'users') {
+      adminActiveTitle.textContent = '👥 مدیریت مرغداران و کاربران سامانه';
+      adminActiveDesc.textContent = 'مشاهده، جستجو، ثبت و ویرایش مشخصات مرغداران، کلمه عبور و کدهای سامانه';
+    } else if (sec === 'sh') {
+      adminActiveTitle.textContent = '🏭 مدیریت کشتارگاه‌های مقصد';
+      adminActiveDesc.textContent = 'مدیریت و ثبت کشتارگاه‌های مقصد و شناسه‌های ۱۲ رقمی یکتای جهاد کشاورزی';
+    } else if (sec === 'codes') {
+      adminActiveTitle.textContent = '🚚 مدیریت کدهای رهگیری خودرو';
+      adminActiveDesc.textContent = 'مشاهده، افزودن سریع، حذف و ویرایش دسته‌ای کدهای فعال در صدور خودکار';
+    }
+  }
+
+  const userSearchInput = document.getElementById('userSearchInput');
+  const shSearchInput = document.getElementById('shSearchInput');
+  const codeSearchInput = document.getElementById('codeSearchInput');
+
+  if (sec === 'users') {
+    if (typeof loadUsers === 'function') loadUsers().catch(() => {});
+    if (typeof renderAdminUsers === 'function') renderAdminUsers(userSearchInput ? userSearchInput.value.trim() : '');
+  }
+  if (sec === 'sh' && typeof renderAdminSlaughterhouses === 'function') renderAdminSlaughterhouses(shSearchInput ? shSearchInput.value.trim() : '');
+  if (sec === 'codes' && typeof renderAdminCodes === 'function') renderAdminCodes(codeSearchInput ? codeSearchInput.value.trim() : '');
+}
+
+// Router Implementation
+const router = {
+  currentRoute: '/',
+  isNavigating: false,
+
+  navigate(path, replace = false) {
+    if (replace) {
+      window.history.replaceState(null, '', path);
+    } else {
+      window.history.pushState(null, '', path);
+    }
+    this.handleRoute(path);
+  },
+
+  handleRoute(path) {
+    let cleanPath = (path || '/').split('?')[0];
+    if (cleanPath.length > 1 && cleanPath.endsWith('/')) {
+      cleanPath = cleanPath.slice(0, -1);
+    }
+
+    const token = localStorage.getItem('ivo_auth_token');
+    const userStr = localStorage.getItem('ivo_logged_in_user');
+    const isAuthenticated = Boolean(token && userStr);
+
+    const loginScreen = document.getElementById('loginScreen');
+    const mainAppWrapper = document.getElementById('mainAppWrapper');
+
+    // Requirement 1: Login-based access only
+    if (!isAuthenticated) {
+      if (mainAppWrapper) mainAppWrapper.style.display = 'none';
+      if (loginScreen) loginScreen.style.display = 'flex';
+
+      if (cleanPath !== '/login') {
+        const redirectParam = encodeURIComponent(path);
+        window.history.replaceState(null, '', '/login?redirect=' + redirectParam);
+      }
+      return;
+    }
+
+    // Authenticated user
+    if (loginScreen) loginScreen.style.display = 'none';
+    if (mainAppWrapper) mainAppWrapper.style.display = 'block';
+    updateAuthUI();
+
+    // If requesting /login or /, redirect to intended route or /permits
+    if (cleanPath === '/login' || cleanPath === '/') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirect = urlParams.get('redirect');
+      const target = (redirect && redirect !== '/login') ? redirect : '/permits';
+      this.navigate(target, true);
+      return;
+    }
+
+    // Ensure data is loaded
+    if (typeof loadInitialAppData === 'function') {
+      loadInitialAppData();
+    }
+
+    // Requirement 2: Route-based section activation
+    if (cleanPath === '/permits') {
+      activateMenu('tabPermitBtn');
+    } else if (cleanPath === '/discharge') {
+      activateMenu('tabDischargeBtn');
+    } else if (cleanPath === '/admin' || cleanPath === '/admin/users') {
+      showAdminSection('users');
+    } else if (cleanPath === '/admin/slaughterhouses') {
+      showAdminSection('sh');
+    } else if (cleanPath === '/admin/codes') {
+      showAdminSection('codes');
+    } else {
+      this.navigate('/permits', true);
+    }
+
+    this.currentRoute = cleanPath;
+  }
+};
+
+window.addEventListener('popstate', () => {
+  router.handleRoute(window.location.pathname);
+});
+
+function updateAuthUI() {
+  const userProfileBadge = document.getElementById('userProfileBadge');
+  const loggedInFarmerName = document.getElementById('loggedInFarmerName');
+  const loggedInRoleBadge = document.getElementById('loggedInRoleBadge');
+  const savedUserStr = localStorage.getItem('ivo_logged_in_user');
+
+  if (savedUserStr) {
+    try {
+      const user = JSON.parse(savedUserStr);
+      if (userProfileBadge) userProfileBadge.style.display = 'flex';
+      if (loggedInFarmerName) loggedInFarmerName.textContent = user.name || user.username || user.email;
+      if (loggedInRoleBadge) {
+        if (user.role === 'admin') {
+          loggedInRoleBadge.textContent = 'مدیر سیستم';
+          loggedInRoleBadge.className = 'role-badge admin';
+        } else {
+          loggedInRoleBadge.textContent = 'کاربر';
+          loggedInRoleBadge.className = 'role-badge';
+        }
+      }
+      // Auto-select user in permit workflow dropdown
+      if (user.username && typeof userSelect !== 'undefined' && userSelect) {
+        userSelect.value = user.username;
+        if (typeof usersList !== 'undefined') {
+          const u = usersList.find(x => x.username === user.username);
+          if (u && typeof updateUserPreview === 'function') updateUserPreview(u);
+        }
+      }
+    } catch (e) {
+      localStorage.removeItem('ivo_logged_in_user');
+    }
+  } else {
+    if (userProfileBadge) userProfileBadge.style.display = 'none';
+  }
+}
+
 // DOM Elements - Navigation Rail
 const tabPermitBtn = document.getElementById('tabPermitBtn');
 const tabDischargeBtn = document.getElementById('tabDischargeBtn');
@@ -69,15 +404,56 @@ let sessionPermitsList = []; // array of permits issued in session
 let currentDischargeExportData = null; // currently active discharge data
 let lastSuccessfulCodeData = null; // last successful code data
 
-// Initialize
-async function init() {
+// App data loading guard
+let isInitialDataLoaded = false;
+async function loadInitialAppData(force = false) {
+  if (isInitialDataLoaded && !force) return;
+  isInitialDataLoaded = true;
   await loadUsers();
   await loadSlaughterhouses();
   await loadCodes();
   await loadPastReports();
   await loadSessionPermits();
   setupEventSource();
+}
+
+// Initialize Application
+async function init() {
+  // 1. Calculate device fingerprint and update UI badge
+  const fp = await getDeviceFingerprint();
+  const badge = document.getElementById('loginFpBadge');
+  if (badge) {
+    badge.textContent = fp.slice(0, 14) + '...';
+    badge.title = 'شناسه اثر انگشت: ' + fp;
+  }
+
+  // 2. Setup listeners for navigation rail, login form, and admin tools
   setupListeners();
+
+  // 3. Verify session if token exists
+  const token = localStorage.getItem('ivo_auth_token');
+  const user = localStorage.getItem('ivo_logged_in_user');
+
+  if (token && user) {
+    try {
+      const res = await fetch('/api/auth/me');
+      const data = await res.json();
+      if (data.success && data.user) {
+        localStorage.setItem('ivo_logged_in_user', JSON.stringify(data.user));
+        await loadInitialAppData(true);
+        router.handleRoute(window.location.pathname);
+        return;
+      }
+    } catch (err) {
+      console.warn('Session verification failed:', err);
+    }
+    // Expired or invalid session
+    localStorage.removeItem('ivo_auth_token');
+    localStorage.removeItem('ivo_logged_in_user');
+  }
+
+  // Route to /login if unauthenticated
+  router.handleRoute(window.location.pathname);
 }
 
 // Load Users
@@ -87,13 +463,13 @@ async function loadUsers() {
     const data = await res.json();
     if (data.success && data.users) {
       usersList = data.users;
-      
+
       const prevSelected = userSelect.value;
       // Populate permit user select
       userSelect.innerHTML = '<option value="" disabled selected>-- یک دامدار را انتخاب کنید --</option>';
       // Populate discharge user select with 'ALL' as first and default
       dischargeUserSelect.innerHTML = '<option value="ALL" selected>⚡ همه کاربران (بررسی دسته‌ای تمام مرغداران)</option>';
-      
+
       usersList.forEach((user) => {
         const opt1 = document.createElement('option');
         opt1.value = user.username;
@@ -193,7 +569,7 @@ async function loadPastReports() {
         const opt = document.createElement('option');
         opt.value = rep.filename;
         const dateStr = rep.executionTimestamp ? new Date(rep.executionTimestamp).toLocaleDateString('fa-IR', { hour: '2-digit', minute: '2-digit' }) : '';
-        
+
         if (rep.isSummary) {
           opt.textContent = `📊 گزارش تجمیعی کل (${rep.summaryList?.length || 0} مرغدار) - ${dateStr} [${rep.stats?.totalDischarged || 0} تخلیه]`;
           opt.dataset.report = JSON.stringify(rep);
@@ -533,36 +909,15 @@ async function submitCaptcha() {
 
 // Setup Event Listeners
 function setupListeners() {
-  function activateMenu(targetId) {
-    [tabPermitBtn, tabDischargeBtn, subtabUsersBtn, subtabShBtn, subtabCodesBtn].forEach((btn) => {
-      if (btn) btn.classList.toggle('active', btn.id === targetId);
-    });
 
-    if (targetId === 'tabPermitBtn') {
-      permitPane.classList.add('active');
-      dischargePane.classList.remove('active');
-      adminPane.classList.remove('active');
-      currentWorkflow = 'permit';
-    } else if (targetId === 'tabDischargeBtn') {
-      dischargePane.classList.add('active');
-      permitPane.classList.remove('active');
-      adminPane.classList.remove('active');
-      currentWorkflow = 'discharge';
-    } else {
-      adminPane.classList.add('active');
-      permitPane.classList.remove('active');
-      dischargePane.classList.remove('active');
-      currentWorkflow = 'admin';
-    }
-  }
 
-  // Navigation Rail Items Switching
+  // Navigation Rail Items Switching (Route-Based)
   tabPermitBtn.addEventListener('click', () => {
-    activateMenu('tabPermitBtn');
+    router.navigate('/permits');
   });
 
   tabDischargeBtn.addEventListener('click', () => {
-    activateMenu('tabDischargeBtn');
+    router.navigate('/discharge');
   });
 
   // User Selection change
@@ -798,54 +1153,83 @@ function setupListeners() {
   // ==========================================================
 
   // Admin Subtabs Switching in Navigation Rail
-  const adminUsersSection = document.getElementById('adminUsersSection');
-  const adminShSection = document.getElementById('adminShSection');
-  const adminCodesSection = document.getElementById('adminCodesSection');
-  const adminActiveTitle = document.getElementById('adminActiveTitle');
-  const adminActiveDesc = document.getElementById('adminActiveDesc');
 
-  function showAdminSection(sec) {
-    const targetMap = {
-      users: 'subtabUsersBtn',
-      sh: 'subtabShBtn',
-      codes: 'subtabCodesBtn'
-    };
-    activateMenu(targetMap[sec] || 'subtabUsersBtn');
 
-    if (adminUsersSection) {
-      adminUsersSection.classList.toggle('active', sec === 'users');
-      adminUsersSection.style.display = sec === 'users' ? 'block' : 'none';
-    }
-    if (adminShSection) {
-      adminShSection.classList.toggle('active', sec === 'sh');
-      adminShSection.style.display = sec === 'sh' ? 'block' : 'none';
-    }
-    if (adminCodesSection) {
-      adminCodesSection.classList.toggle('active', sec === 'codes');
-      adminCodesSection.style.display = sec === 'codes' ? 'block' : 'none';
-    }
+  if (subtabUsersBtn) subtabUsersBtn.addEventListener('click', () => {
+    router.navigate('/admin/users');
+    checkDatabaseStatus();
+  });
+  if (subtabShBtn) subtabShBtn.addEventListener('click', () => {
+    router.navigate('/admin/slaughterhouses');
+    checkDatabaseStatus();
+  });
+  if (subtabCodesBtn) subtabCodesBtn.addEventListener('click', () => {
+    router.navigate('/admin/codes');
+    checkDatabaseStatus();
+  });
 
-    if (adminActiveTitle && adminActiveDesc) {
-      if (sec === 'users') {
-        adminActiveTitle.textContent = '👥 مدیریت مرغداران و کاربران سامانه';
-        adminActiveDesc.textContent = 'مشاهده، جستجو، ثبت و ویرایش مشخصات مرغداران، کلمه عبور و کدهای سامانه';
-      } else if (sec === 'sh') {
-        adminActiveTitle.textContent = '🏭 مدیریت کشتارگاه‌های مقصد';
-        adminActiveDesc.textContent = 'مدیریت و ثبت کشتارگاه‌های مقصد و شناسه‌های ۱۲ رقمی یکتای جهاد کشاورزی';
-      } else if (sec === 'codes') {
-        adminActiveTitle.textContent = '🚚 مدیریت کدهای رهگیری خودرو';
-        adminActiveDesc.textContent = 'مشاهده، افزودن سریع، حذف و ویرایش دسته‌ای کدهای فعال در صدور خودکار';
+  // Database / Supabase Status Handler
+  async function checkDatabaseStatus() {
+    const dot = document.getElementById('dbStatusDot');
+    const text = document.getElementById('dbStatusText');
+    const syncBtn = document.getElementById('syncSupabaseBtn');
+    if (!dot || !text) return;
+
+    try {
+      const res = await fetch('/api/database/status');
+      const data = await res.json();
+      if (data.success) {
+        if (data.tableReady) {
+          dot.style.background = '#22c55e';
+          dot.style.boxShadow = '0 0 6px #22c55e';
+          text.textContent = 'متصل به Supabase (آنلاین)';
+          text.title = data.message;
+          if (syncBtn) syncBtn.style.display = 'inline-block';
+        } else if (data.connected) {
+          dot.style.background = '#eab308';
+          dot.style.boxShadow = '0 0 6px #eab308';
+          text.textContent = 'سوپابیس متصل (منتظر ساخت جدول users)';
+          text.title = data.message;
+          if (syncBtn) syncBtn.style.display = 'none';
+        } else {
+          dot.style.background = '#64748b';
+          dot.style.boxShadow = 'none';
+          text.textContent = 'دیتابیس محلی (data/users.json)';
+          text.title = data.message;
+          if (syncBtn) syncBtn.style.display = 'none';
+        }
       }
+    } catch (e) {
+      dot.style.background = '#64748b';
+      text.textContent = 'دیتابیس محلی';
     }
-
-    if (sec === 'users') renderAdminUsers(userSearchInput ? userSearchInput.value.trim() : '');
-    if (sec === 'sh') renderAdminSlaughterhouses(shSearchInput ? shSearchInput.value.trim() : '');
-    if (sec === 'codes') renderAdminCodes(codeSearchInput ? codeSearchInput.value.trim() : '');
   }
 
-  if (subtabUsersBtn) subtabUsersBtn.addEventListener('click', () => showAdminSection('users'));
-  if (subtabShBtn) subtabShBtn.addEventListener('click', () => showAdminSection('sh'));
-  if (subtabCodesBtn) subtabCodesBtn.addEventListener('click', () => showAdminSection('codes'));
+  const syncSupabaseBtn = document.getElementById('syncSupabaseBtn');
+  if (syncSupabaseBtn) {
+    syncSupabaseBtn.addEventListener('click', async () => {
+      syncSupabaseBtn.disabled = true;
+      syncSupabaseBtn.textContent = '⏳ در حال ارسال...';
+      try {
+        const res = await fetch('/api/database/sync', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'کاربران با موفقیت در سوپابیس ذخیره شدند.', 'success');
+          await loadUsers();
+        } else {
+          showToast(data.error || 'خطا در همگام‌سازی', 'error');
+        }
+      } catch (err) {
+        showToast('خطا در ارتباط با سرور: ' + err.message, 'error');
+      } finally {
+        syncSupabaseBtn.disabled = false;
+        syncSupabaseBtn.textContent = '🔄 همگام‌سازی با Supabase';
+      }
+    });
+  }
+
+  // Initial check on load
+  checkDatabaseStatus();
 
   // Admin Search Filters
   const userSearchInput = document.getElementById('userSearchInput');
@@ -878,6 +1262,17 @@ function setupListeners() {
 
   if (openAddUserModalBtn) {
     openAddUserModalBtn.addEventListener('click', () => {
+      const loggedInUserStr = localStorage.getItem('ivo_logged_in_user');
+      let isAdmin = false;
+      if (loggedInUserStr) {
+        try {
+          const u = JSON.parse(loggedInUserStr);
+          isAdmin = (u.role === 'admin' || u.username === 'admin' || u.email === 'admin@ivo.ir');
+        } catch (e) {}
+      }
+      const emailGroup = document.getElementById('userModalEmailGroup');
+      if (emailGroup) emailGroup.style.display = isAdmin ? '' : 'none';
+
       document.getElementById('userModalTitle').textContent = 'افزودن مرغدار جدید';
       document.getElementById('userModalMode').value = 'add';
       document.getElementById('userModalOriginalUsername').value = '';
@@ -885,6 +1280,8 @@ function setupListeners() {
       document.getElementById('userModalUsername').value = '';
       document.getElementById('userModalPassword').value = '';
       document.getElementById('userModalPassword').type = 'password';
+      const emailEl = document.getElementById('userModalEmail');
+      if (emailEl) emailEl.value = '';
       document.getElementById('userModalBreed').value = 'راس';
       document.getElementById('userModalEpidemiologic').value = '';
       document.getElementById('userModalHatching').value = '';
@@ -919,6 +1316,8 @@ function setupListeners() {
       const name = document.getElementById('userModalName').value.trim();
       const username = document.getElementById('userModalUsername').value.trim();
       const password = document.getElementById('userModalPassword').value.trim();
+      const emailEl = document.getElementById('userModalEmail');
+      const email = emailEl ? emailEl.value.trim() : '';
       const breed = document.getElementById('userModalBreed').value;
       const epidemiologicCode = document.getElementById('userModalEpidemiologic').value.trim();
       const hatchingPermitCode = document.getElementById('userModalHatching').value.trim();
@@ -940,13 +1339,31 @@ function setupListeners() {
         const res = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, username, password, breed, epidemiologicCode, hatchingPermitCode }),
+          body: JSON.stringify({ name, username, password, email, breed, epidemiologicCode, hatchingPermitCode }),
         });
         const data = await res.json();
 
         if (data.success) {
           userModal.classList.remove('active');
           await loadUsers();
+
+          // If email was provided, also ensure registered in Supabase Auth
+          if (email) {
+            try {
+              const authRes = await fetch('/api/auth/register-farmer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password })
+              });
+              const authData = await authRes.json();
+              if (authData.success) {
+                openAuthCredentialsModal({ name, username, email, password });
+              }
+            } catch (err) {
+              console.warn('Auth auto-register notice:', err);
+            }
+          }
+
           showToast(mode === 'add' ? 'مرغدار جدید با موفقیت اضافه شد.' : 'اطلاعات مرغدار ویرایش شد.', 'success');
         } else {
           errorBox.textContent = data.error || 'خطا در ثبت اطلاعات کاربر';
@@ -1275,6 +1692,187 @@ function setupListeners() {
       }
     });
   }
+
+  // --- Supabase Auth Credentials Modal Handlers ---
+  const copyCredBtn = document.getElementById('copyCredMessageBtn');
+  const closeCredBtn = document.getElementById('closeCredModalBtn');
+  const credModal = document.getElementById('authCredentialsModal');
+
+  if (closeCredBtn && credModal) {
+    closeCredBtn.addEventListener('click', () => credModal.classList.remove('active'));
+  }
+
+  if (copyCredBtn && credModal) {
+    copyCredBtn.addEventListener('click', () => {
+      const name = credModal.dataset.farmerName || '';
+      const email = credModal.dataset.email || '';
+      const password = credModal.dataset.password || '';
+      const portalUrl = window.location.origin;
+
+      const messageText = `سلام ${name} عزیز،\nمشخصات ورود شما به سامانه جامع اتوماسیون دامپزشکی:\n\n🌐 آدرس ورود به سامانه: ${portalUrl}\n📧 ایمیل ورود: ${email}\n🔑 رمز عبور ورود: ${password}\n\nجهت ورود به حساب، روی دکمه «ورود مرغدار» در بالای صفحه کلیک نمایید.`;
+
+      navigator.clipboard.writeText(messageText);
+      showToast('متن مشخصات ورود کپی شد! می‌توانید آن را برای مرغدار ارسال کنید.', 'success');
+      copyCredBtn.textContent = 'کپی شد ✓';
+      setTimeout(() => {
+        copyCredBtn.textContent = '📋 کپی متن پیام برای ارسال به مرغدار';
+      }, 2500);
+    });
+  }
+
+
+  // ==========================================
+  // Full-Screen Login & Device Locking Handlers
+  // ==========================================
+  const submitLoginActionBtn = document.getElementById('submitLoginActionBtn');
+  const loginIdentifierInput = document.getElementById('loginIdentifierInput');
+  const loginPasswordInput = document.getElementById('loginPasswordInput');
+  const toggleLoginPasswordBtn = document.getElementById('toggleLoginPasswordBtn');
+  const toggleLoginHelpBtn = document.getElementById('toggleLoginHelpBtn');
+  const loginHelpBox = document.getElementById('loginHelpBox');
+  const loginAlertBox = document.getElementById('loginAlertBox');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  if (toggleLoginPasswordBtn && loginPasswordInput) {
+    toggleLoginPasswordBtn.addEventListener('click', () => {
+      if (loginPasswordInput.type === 'password') {
+        loginPasswordInput.type = 'text';
+        toggleLoginPasswordBtn.textContent = '🔒';
+      } else {
+        loginPasswordInput.type = 'password';
+        toggleLoginPasswordBtn.textContent = '👁️';
+      }
+    });
+  }
+
+  if (toggleLoginHelpBtn && loginHelpBox) {
+    toggleLoginHelpBtn.addEventListener('click', () => {
+      const isVisible = loginHelpBox.style.display === 'block';
+      loginHelpBox.style.display = isVisible ? 'none' : 'block';
+      toggleLoginHelpBtn.textContent = isVisible ? 'راهنمای حساب‌های کاربری ▾' : 'بستن راهنما ▴';
+    });
+  }
+
+  async function handleLogin() {
+    const identifier = loginIdentifierInput ? loginIdentifierInput.value.trim() : '';
+    const password = loginPasswordInput ? loginPasswordInput.value.trim() : '';
+
+    if (!identifier || !password) {
+      if (loginAlertBox) {
+        loginAlertBox.textContent = 'لطفاً نام کاربری (یا ایمیل) و رمز عبور را وارد فرمایید.';
+        loginAlertBox.className = 'login-alert active';
+      }
+      return;
+    }
+
+    if (loginAlertBox) loginAlertBox.className = 'login-alert';
+    if (submitLoginActionBtn) {
+      submitLoginActionBtn.disabled = true;
+      submitLoginActionBtn.innerHTML = '<span>در حال بررسی اثر انگشت و ورود...</span>';
+    }
+
+    try {
+      const deviceFingerprint = await getDeviceFingerprint();
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password, deviceFingerprint })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        localStorage.setItem('ivo_auth_token', data.token);
+        localStorage.setItem('ivo_logged_in_user', JSON.stringify(data.user));
+
+        showToast(data.message || 'با موفقیت وارد شدید.', 'success');
+
+        isInitialDataLoaded = false;
+        usersList = [];
+        await loadInitialAppData(true);
+        updateAuthUI();
+
+        // Redirect to intended route or /permits
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirect = urlParams.get('redirect');
+        const target = (redirect && redirect !== '/login') ? redirect : '/permits';
+        router.navigate(target, true);
+      } else {
+        if (loginAlertBox) {
+          loginAlertBox.textContent = data.error || 'خطا در ورود به حساب';
+          if (data.deviceMismatch) {
+            loginAlertBox.className = 'login-alert active login-alert-mismatch';
+          } else {
+            loginAlertBox.className = 'login-alert active';
+          }
+        }
+      }
+    } catch (err) {
+      if (loginAlertBox) {
+        loginAlertBox.textContent = 'خطا در برقراری ارتباط با سرور: ' + err.message;
+        loginAlertBox.className = 'login-alert active';
+      }
+    } finally {
+      if (submitLoginActionBtn) {
+        submitLoginActionBtn.disabled = false;
+        submitLoginActionBtn.innerHTML = '<span>ورود به سامانه</span><span>↵</span>';
+      }
+    }
+  }
+
+  if (submitLoginActionBtn) {
+    submitLoginActionBtn.addEventListener('click', handleLogin);
+  }
+
+  if (loginPasswordInput) {
+    loginPasswordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleLogin();
+    });
+  }
+
+  if (loginIdentifierInput) {
+    loginIdentifierInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleLogin();
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+      } catch (e) { }
+      localStorage.removeItem('ivo_auth_token');
+      localStorage.removeItem('ivo_logged_in_user');
+      isInitialDataLoaded = false;
+      usersList = [];
+      updateAuthUI();
+      showToast('از حساب کاربری خارج شدید.', 'info');
+      router.navigate('/login');
+    });
+  }
+
+}
+
+// Global Auth Credentials Modal Helper
+function openAuthCredentialsModal(user) {
+  const modal = document.getElementById('authCredentialsModal');
+  const nameEl = document.getElementById('credFarmerName');
+  const emailEl = document.getElementById('credEmail');
+  const passEl = document.getElementById('credPassword');
+  if (!modal) return;
+
+  const farmerName = user.name || user.username || '';
+  const farmerEmail = user.email || `${(user.username || 'farmer').toLowerCase()}@gmail.com`;
+  const farmerPassword = user.password || '••••••••';
+
+  if (nameEl) nameEl.textContent = `${farmerName} (${user.username || ''})`;
+  if (emailEl) emailEl.textContent = farmerEmail;
+  if (passEl) passEl.textContent = farmerPassword;
+
+  modal.dataset.farmerName = farmerName;
+  modal.dataset.email = farmerEmail;
+  modal.dataset.password = farmerPassword;
+
+  modal.classList.add('active');
 }
 
 // Global Download Helper
@@ -1320,7 +1918,7 @@ function renderSessionPermitsTable() {
   if (sessionPermitsList.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" style="text-align: center; color: var(--color-ink-dim); padding: 1.5rem;">
+        <td colspan="7" style="text-align: center; color: var(--color-ink-dim); padding: 1.5rem;">
           در این نشست هنوز مجوزی صادر نشده است. پس از کلیک روی «شروع صدور مجوز»، پروانه‌های تایید شده در اینجا جمع‌آوری می‌شوند.
         </td>
       </tr>
@@ -1391,6 +1989,26 @@ function renderAdminUsers(filterText = '') {
     countBadge.textContent = usersList.length;
   }
 
+  // بررسی نقش کاربر فعلی: آیا مدیر سیستم است؟
+  const loggedInUserStr = localStorage.getItem('ivo_logged_in_user');
+  let isAdmin = false;
+  if (loggedInUserStr) {
+    try {
+      const u = JSON.parse(loggedInUserStr);
+      isAdmin = (u.role === 'admin' || u.username === 'admin' || u.email === 'admin@ivo.ir');
+    } catch (e) {}
+  }
+
+  // کنترل نمایش ستون‌های اختصاصی مدیر (اکانت ورود، قفل مرورگر، ثبت‌کننده)
+  document.querySelectorAll('.admin-only-col').forEach((th) => {
+    th.style.display = isAdmin ? '' : 'none';
+  });
+
+  const emailGroup = document.getElementById('userModalEmailGroup');
+  if (emailGroup) {
+    emailGroup.style.display = isAdmin ? '' : 'none';
+  }
+
   const query = (filterText || '').toLowerCase();
   const filtered = usersList.filter((u) => {
     if (!query) return true;
@@ -1399,14 +2017,15 @@ function renderAdminUsers(filterText = '') {
       (u.username && u.username.toLowerCase().includes(query)) ||
       (u.breed && u.breed.toLowerCase().includes(query)) ||
       (u.epidemiologicCode && u.epidemiologicCode.includes(query)) ||
-      (u.hatchingPermitCode && u.hatchingPermitCode.includes(query))
+      (u.hatchingPermitCode && u.hatchingPermitCode.includes(query)) ||
+      (u.createdBy && u.createdBy.toLowerCase().includes(query))
     );
   });
 
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" style="text-align: center; color: var(--color-ink-dim); padding: 2rem;">
+        <td colspan="${isAdmin ? 10 : 7}" style="text-align: center; color: var(--color-ink-dim); padding: 2rem;">
           ${filterText ? 'مرغداری با این مشخصات یافت نشد.' : 'هنوز مرغداری تعریف نشده است.'}
         </td>
       </tr>
@@ -1417,6 +2036,39 @@ function renderAdminUsers(filterText = '') {
   tbody.innerHTML = '';
   filtered.forEach((user) => {
     const tr = document.createElement('tr');
+
+    const adminColsHtml = isAdmin ? `
+      <td>
+        ${user.email ? `
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="color: #60a5fa; font-family: monospace; font-size: 0.8rem; direction: ltr;">${user.email}</span>
+            <button type="button" class="btn-action btn-copy show-farmer-auth-cred-btn" data-username="${user.username}" title="مشاهده مشخصات ورود مرغدار">🔑</button>
+          </div>
+        ` : `
+          <button type="button" class="btn-action create-farmer-auth-btn" data-username="${user.username}" data-name="${user.name}" style="color: #eab308; border-color: rgba(234, 179, 8, 0.4); font-size: 0.72rem; padding: 2px 6px;" title="ایجاد اکانت ورود در Supabase Auth">+ ساخت اکانت</button>
+        `}
+      </td>
+      <td>
+        ${user.deviceFingerprint ? `
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span class="badge" style="background: rgba(34, 197, 94, 0.12); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); font-size: 0.72rem; font-family: monospace;" title="شناسه اثر انگشت: ${user.deviceFingerprint}">
+              🔒 ${user.deviceFingerprint.slice(0, 8)}...
+            </span>
+            <button type="button" class="btn-action reset-device-lock-btn" data-username="${user.username}" title="بازنشانی قفل سخت‌افزاری مرورگر" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.4); font-size: 0.7rem; padding: 2px 6px;">
+              🔓 ریست
+            </button>
+          </div>
+        ` : `
+          <span style="color: var(--color-ink-dim); font-size: 0.75rem;">⏳ آزاد (قفل نشده)</span>
+        `}
+      </td>
+      <td>
+        <span class="badge" style="background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 0.75rem; font-family: monospace;">
+          ${user.createdBy || 'admin'}
+        </span>
+      </td>
+    ` : '';
+
     tr.innerHTML = `
       <td style="font-weight: 600;">${user.name}</td>
       <td><span class="badge" style="font-family: monospace; font-size: 0.85rem;">${user.username}</span></td>
@@ -1424,6 +2076,7 @@ function renderAdminUsers(filterText = '') {
         <span class="user-pass-display" data-pass="${encodeURIComponent(user.password)}" style="font-family: monospace; letter-spacing: 2px;">••••••••</span>
         <button type="button" class="btn-action btn-copy toggle-user-pass-btn" style="margin-right: 4px; padding: 2px 6px;" title="نمایش رمز">👁️</button>
       </td>
+      ${adminColsHtml}
       <td><span style="color: var(--color-ink-white-muted);">${user.breed || 'راس'}</span></td>
       <td style="font-family: monospace; direction: ltr; text-align: right;">${user.epidemiologicCode || '-'}</td>
       <td style="font-family: monospace; direction: ltr; text-align: right;">${user.hatchingPermitCode || '-'}</td>
@@ -1458,11 +2111,106 @@ function renderAdminUsers(filterText = '') {
     });
   });
 
+  // Reset Device Lock button handler
+  tbody.querySelectorAll('.reset-device-lock-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const username = btn.dataset.username;
+      if (!confirm('آیا از بازنشانی قفل مرورگر برای کاربر "' + username + '" اطمینان دارید؟ کاربر می‌تواند در ورود بعدی با سیستم یا مرورگر جدید متصل شود.')) {
+        return;
+      }
+      try {
+        btn.disabled = true;
+        btn.textContent = '...';
+        const res = await fetch('/api/users/' + encodeURIComponent(username) + '/reset-device', {
+          method: 'POST'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message, 'success');
+          await loadUsers();
+        } else {
+          showToast(data.error || 'خطا در بازنشانی قفل', 'error');
+        }
+      } catch (err) {
+        showToast('خطا در ارتباط با سرور: ' + err.message, 'error');
+      }
+    });
+  });
+
+
+  // Show Auth Credentials Modal
+  tbody.querySelectorAll('.show-farmer-auth-cred-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const username = btn.dataset.username;
+      const user = usersList.find((u) => u.username === username);
+      if (!user) return;
+      openAuthCredentialsModal(user);
+    });
+  });
+
+  // Quick Create Auth Account
+  tbody.querySelectorAll('.create-farmer-auth-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const username = btn.dataset.username;
+      const user = usersList.find((u) => u.username === username);
+      if (!user) return;
+
+      const defaultEmail = `${user.username.toLowerCase()}@gmail.com`;
+      const email = prompt(`ایمیل مرغدار «${user.name}» را جهت ثبت در Supabase Auth وارد کنید:`, defaultEmail);
+      if (!email) return;
+
+      btn.disabled = true;
+      btn.textContent = '⏳ در حال ساخت...';
+
+      try {
+        const res = await fetch('/api/auth/register-farmer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            email: email.trim(),
+            password: user.password
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await loadUsers();
+          openAuthCredentialsModal({
+            name: user.name,
+            username: user.username,
+            email: email.trim(),
+            password: user.password
+          });
+          showToast(`اکانت برای مرغدار ${user.name} با موفقیت ساخته شد.`, 'success');
+        } else {
+          showToast(data.error || 'خطا در ایجاد اکانت', 'error');
+        }
+      } catch (err) {
+        showToast('خطا در ارتباط با سرور: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '+ ساخت اکانت';
+      }
+    });
+  });
+
   tbody.querySelectorAll('.edit-user-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const username = btn.dataset.username;
       const user = usersList.find((u) => u.username === username);
       if (!user) return;
+
+      const loggedInUserStr = localStorage.getItem('ivo_logged_in_user');
+      let isAdmin = false;
+      if (loggedInUserStr) {
+        try {
+          const u = JSON.parse(loggedInUserStr);
+          isAdmin = (u.role === 'admin' || u.username === 'admin' || u.email === 'admin@ivo.ir');
+        } catch (e) {}
+      }
+      const emailGroup = document.getElementById('userModalEmailGroup');
+      if (emailGroup) emailGroup.style.display = isAdmin ? '' : 'none';
 
       document.getElementById('userModalTitle').textContent = `ویرایش مرغدار: ${user.name}`;
       document.getElementById('userModalMode').value = 'edit';
@@ -1471,6 +2219,8 @@ function renderAdminUsers(filterText = '') {
       document.getElementById('userModalUsername').value = user.username || '';
       document.getElementById('userModalPassword').value = user.password || '';
       document.getElementById('userModalPassword').type = 'password';
+      const emailEl = document.getElementById('userModalEmail');
+      if (emailEl) emailEl.value = user.email || '';
       document.getElementById('userModalBreed').value = user.breed || 'راس';
       document.getElementById('userModalEpidemiologic').value = user.epidemiologicCode || '';
       document.getElementById('userModalHatching').value = user.hatchingPermitCode || '';

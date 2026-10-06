@@ -1,3 +1,5 @@
+require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const { PUBLIC_DIR } = require('./src/config/paths');
 const { DEFAULTS } = require('./src/config/constants');
@@ -30,12 +32,26 @@ dischargeService.on('discharge_item_progress', (data) => sseBroker.broadcast('di
 // Mount Central API Router
 app.use('/api', apiRoutes);
 
+// Client-Side Routing Fallback (SPA routing support for /login, /permits, /discharge, /admin, etc.)
+app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+        // Prevent returning HTML for missing static assets (images, css, js, fonts)
+        if (req.path.includes('.') && !req.path.endsWith('.html')) {
+            return res.status(404).end();
+        }
+        return res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+    }
+    next();
+});
+
 // Server Listen
 app.listen(PORT, () => {
-    console.log(`\n======================================================`);
+    console.log(`
+======================================================`);
     console.log(`🚀 پنل اتوماسیون جامع دامپزشکی (IVO Automation) فعال شد!`);
     console.log(`🌐 آدرس دسترسی در مرورگر: http://localhost:${PORT}`);
-    console.log(`======================================================\n`);
+    console.log(`======================================================
+`);
 });
 
 module.exports = app;
