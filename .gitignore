@@ -15,6 +15,7 @@ Thumbs.db
 .idea/
 
 # Automation outputs & temporary files
+data/
 results/*.png
 results/*.xlsx
 screenshots/
