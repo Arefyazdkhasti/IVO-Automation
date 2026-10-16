@@ -87,6 +87,18 @@ class PermitService extends EventEmitter {
         return false;
     }
 
+    skipCaptcha() {
+        if (this.captchaRejecter) {
+            this.log('کپچا توسط کاربر رد (اسکیپ) شد.', 'warning');
+            const rejecter = this.captchaRejecter;
+            this.captchaResolver = null;
+            this.captchaRejecter = null;
+            rejecter(new Error('CAPTCHA_SKIPPED'));
+            return true;
+        }
+        return false;
+    }
+
     async waitForCaptchaInput(captchaBase64) {
         this.setStatus('waiting_captcha', { captchaImage: captchaBase64 });
         this.log('کپچا دریافت شد. لطفاً کد را در پنل وارد کنید...', 'info');
@@ -135,6 +147,7 @@ class PermitService extends EventEmitter {
                 slaughterhouseName: options.slaughterhouseName,
                 quantity: options.quantity || '2000',
                 breed: options.breed || user.breed || 'راس',
+                permitScope: options.permitScope || 'inside',
             }];
 
         const cooldownSeconds = options.cooldownSeconds !== undefined
@@ -166,6 +179,7 @@ class PermitService extends EventEmitter {
 
             // 1. Perform login with captcha verification (only ONCE!)
             await this.performLogin(user);
+            if (!this.isRunning) return { success: false, reason: 'stopped' };
 
             let workingTrackingCode = null;
             const completedPermits = [];
@@ -174,9 +188,11 @@ class PermitService extends EventEmitter {
             for (let pIdx = 0; pIdx < permitsList.length; pIdx++) {
                 if (!this.isRunning) break;
                 const currentPermitItem = permitsList[pIdx];
+                this.currentPermitItem = currentPermitItem;
 
+                const scopeLabel = currentPermitItem.permitScope === 'outside' ? 'خارج استانی' : 'داخل استانی';
                 this.log(`\n======================================================`, 'info');
-                this.log(`[مجوز ${pIdx + 1} از ${permitsList.length}] مقصد: ${currentPermitItem.slaughterhouseName || currentPermitItem.slaughterhouseCode} | تعداد: ${currentPermitItem.quantity} قطعه`, 'info');
+                this.log(`[مجوز ${pIdx + 1} از ${permitsList.length}] نوع: ${scopeLabel} | مقصد: ${currentPermitItem.slaughterhouseName || currentPermitItem.slaughterhouseCode} | تعداد: ${currentPermitItem.quantity} قطعه`, 'info');
                 this.log(`======================================================`, 'info');
 
                 // If not the first permit, wait 2 minutes (cooldown)
@@ -186,8 +202,8 @@ class PermitService extends EventEmitter {
                     if (!this.isRunning) break;
                 }
 
-                // Navigate to Poultry Permit Page
-                await this.navigateToPoultryPermitPage();
+                // Navigate to Poultry Permit Page (inside or outside province)
+                await this.navigateToPoultryPermitPage(currentPermitItem);
 
                 if (pIdx === 0) {
                     // First permit: check candidate codes first, then fallback to default tracking codes
@@ -766,7 +782,18 @@ class PermitService extends EventEmitter {
             const captchaBase64 = `data:image/jpeg;base64,${captchaBuffer.toString('base64')}`;
 
             // Wait for user to input captcha from Web UI
-            const captchaCode = await this.waitForCaptchaInput(captchaBase64);
+            let captchaCode;
+            try {
+                captchaCode = await this.waitForCaptchaInput(captchaBase64);
+            } catch (err) {
+                if (err.message === 'CAPTCHA_SKIPPED') {
+                    this.log('ورود به سیستم به دلیل اسکیپ کردن کد کپچا توسط کاربر لغو شد.', 'warning');
+                    this.setStatus('idle');
+                    this.isRunning = false;
+                    return;
+                }
+                throw err;
+            }
             if (!this.isRunning) return;
 
             this.log(`کد کپچا وارد شد: ${captchaCode}. در حال ارسال به پورتال...`, 'info');
@@ -795,9 +822,80 @@ class PermitService extends EventEmitter {
         }
     }
 
-    async navigateToPoultryPermitPage() {
+    async navigateToPoultryPermitPage(permitItem = this.currentPermitItem) {
+        const isOutsideProvince = (permitItem?.permitScope === 'outside') || (permitItem?.isOutsideProvince === true);
+
+        if (isOutsideProvince) {
+            this.setStatus('navigating');
+            this.log('در حال هدایت به منوی خارج استانی ("خروجی داخلی > طیور")...', 'info');
+
+            // 1. Ensure on portal home index1.aspx
+            const currentUrl = this.page.url();
+            if (!currentUrl.includes('index1.aspx')) {
+                this.log('انتقال به صفحه اصلی پورتال (index1.aspx)...', 'info');
+                await this.page.goto(PORTAL_HOME_URL, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+                await this.page.waitForTimeout(1000);
+            }
+
+            let navigated = false;
+
+            // Method 1: Click on "خروجي داخلي" menu, then click "طيور" (#A32)
+            try {
+                const khoroojMenu = this.page.locator('a.MenuBarItemSubmenu:has-text("خروجي داخلي"), a.MenuBarItemSubmenu:has-text("خروجی داخلی"), a:has-text("خروجي داخلي"), a:has-text("خروجی داخلی")').first();
+                if (await khoroojMenu.isVisible({ timeout: 5000 }).catch(() => false)) {
+                    this.log('کلیک روی منوی "خروجی داخلی"...', 'info');
+                    await khoroojMenu.hover().catch(() => {});
+                    await khoroojMenu.click().catch(() => {});
+                    await this.page.waitForTimeout(500);
+                }
+
+                // Check A32 link in submenu
+                const poultryA32 = this.page.locator('#A32, a[href*="A32"], a:has-text("طيور"), a:has-text("طیور")').first();
+                if (await poultryA32.isVisible({ timeout: 4000 }).catch(() => false)) {
+                    this.log('کلیک روی گزینه "طیور" (A32) از منوی خروجی داخلی...', 'info');
+                    await Promise.all([
+                        this.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {}),
+                        poultryA32.click(),
+                    ]);
+                    navigated = true;
+                }
+            } catch (err) {
+                this.log(`تلاش باز کردن منوی خروجی داخلی: ${err.message}`, 'warning');
+            }
+
+            // Method 2: If not yet navigated away from index1.aspx, trigger postback directly
+            if (!navigated || this.page.url().includes('index1.aspx')) {
+                try {
+                    this.log('تلاش اجرای مستقیم پست‌بک منوی خارج استانی A32...', 'info');
+                    await Promise.all([
+                        this.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {}),
+                        this.page.evaluate(() => {
+                            if (typeof window.__doPostBack === 'function') {
+                                window.__doPostBack('A32', '');
+                                return true;
+                            }
+                            const link = document.querySelector('#A32') || document.querySelector('a[href*="A32"]');
+                            if (link) {
+                                link.click();
+                                return true;
+                            }
+                            return false;
+                        }).catch(() => false),
+                    ]);
+                } catch (e) {
+                    this.log(`پست‌بک A32 با خطا مواجه شد: ${e.message}`, 'warning');
+                }
+            }
+
+            // Verify we reached the permit entry page
+            await this.ensureOnPoultryPermitPage(permitItem);
+            this.log('صفحه ورود کد رهگیری برای صدور مجوز خارج استانی با موفقیت باز شد.', 'success');
+            return;
+        }
+
+        // Inside province (درون استانی > برون شهرستان > طیور)
         this.setStatus('navigating');
-        this.log('در حال هدایت به منوی "درون استانی > برون شهرستان > طیور"...', 'info');
+        this.log('در حال هدایت به منوی درون استانی ("درون استانی > برون شهرستان > طیور")...', 'info');
 
         // Check if we are not on portal home
         const currentUrl = this.page.url();
@@ -825,7 +923,7 @@ class PermitService extends EventEmitter {
             });
 
             if (hasA72) {
-                this.log('دستور پست‌بک آیتم منوی طیور (A72) اجرا شد. در حال انتظار برای بارگذاری صفحه...', 'info');
+                this.log('دستور پست‌بک آیتم منوی طیور درون استانی (A72) اجرا شد. در حال انتظار برای بارگذاری صفحه...', 'info');
                 await this.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
             }
         } catch (e) {
@@ -837,7 +935,7 @@ class PermitService extends EventEmitter {
             try {
                 this.log('تلاش برای باز کردن سلسله مراتبی منوها با ماوس...', 'info');
                 // Hover "درون استاني"
-                const intraProvMenu = this.page.locator('a.MenuBarItemSubmenu:has-text("درون استاني")').first();
+                const intraProvMenu = this.page.locator('a.MenuBarItemSubmenu:has-text("درون استاني"), a.MenuBarItemSubmenu:has-text("درون استانی")').first();
                 if (await intraProvMenu.isVisible()) {
                     await intraProvMenu.hover();
                     await this.page.waitForTimeout(400);
@@ -850,7 +948,7 @@ class PermitService extends EventEmitter {
                     }
                 }
 
-                const poultryLink = this.page.locator('#A72, a:has-text("طيور")').first();
+                const poultryLink = this.page.locator('#A72, a:has-text("طيور"), a:has-text("طیور")').first();
                 if (await poultryLink.isVisible()) {
                     await Promise.all([
                         this.page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
@@ -869,34 +967,41 @@ class PermitService extends EventEmitter {
         }
 
         // Verify we reached the page
-        await this.ensureOnPoultryPermitPage();
-        this.log('صفحه ورود کد رهگیری (index_dbkava.aspx) با موفقیت باز شد.', 'success');
+        await this.ensureOnPoultryPermitPage(permitItem);
+        this.log('صفحه ورود کد رهگیری درون استانی با موفقیت باز شد.', 'success');
     }
 
-    async ensureOnPoultryPermitPage() {
-        const currentUrl = this.page.url();
-        if (!currentUrl.includes('index_dbkava.aspx')) {
-            this.log(`خروج از صفحه تشخیص داده شد (${currentUrl}). در حال بازگشت با دکمه Back مرورگر...`, 'warning');
-            
-            // Try going back first as requested
-            try {
-                await Promise.all([
-                    this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {}),
-                    this.page.goBack({ timeout: 8000 }).catch(() => {}),
-                ]);
-            } catch (e) {}
+    async ensureOnPoultryPermitPage(permitItem = this.currentPermitItem) {
+        const gidInput = this.page.locator('input#gid[type="text"], input[name="gid"][type="text"]').first();
+        if (await gidInput.isVisible().catch(() => false)) {
+            return gidInput;
+        }
 
-            // If still not on index_dbkava.aspx, navigate directly
+        const isOutsideProvince = (permitItem?.permitScope === 'outside') || (permitItem?.isOutsideProvince === true);
+        const currentUrl = this.page.url();
+        this.log(`کادر کد رهگیری در صفحه فعلی (${currentUrl}) مشاهده نشد. در حال بازیابی صفحه ورود کد...`, 'warning');
+
+        // Try going back first as requested
+        try {
+            await Promise.all([
+                this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {}),
+                this.page.goBack({ timeout: 8000 }).catch(() => {}),
+            ]);
+            await this.page.waitForTimeout(1000);
+            if (await gidInput.isVisible().catch(() => false)) {
+                return gidInput;
+            }
+        } catch (e) {}
+
+        if (isOutsideProvince) {
+            await this.navigateToPoultryPermitPage(permitItem);
+        } else {
             if (!this.page.url().includes('index_dbkava.aspx')) {
                 this.log('بازگشت مستقیم به آدرس index_dbkava.aspx...', 'info');
                 await this.page.goto(POULTRY_PAGE_URL, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
             }
-
-            await this.page.waitForTimeout(1000);
         }
 
-        // Wait for specific input field on index_dbkava.aspx (using .first() to avoid strict mode violations)
-        const gidInput = this.page.locator('input#gid[type="text"], input[name="gid"][type="text"]').first();
         await gidInput.waitFor({ state: 'visible', timeout: 15000 });
         return gidInput;
     }

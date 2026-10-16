@@ -64,6 +64,18 @@ class DischargeService extends EventEmitter {
         return false;
     }
 
+    skipCaptcha() {
+        if (this.captchaRejecter) {
+            this.log('کپچا توسط کاربر رد (اسکیپ) شد.', 'warning');
+            const rejecter = this.captchaRejecter;
+            this.captchaResolver = null;
+            this.captchaRejecter = null;
+            rejecter(new Error('CAPTCHA_SKIPPED'));
+            return true;
+        }
+        return false;
+    }
+
     async waitForCaptchaInput(captchaBase64) {
         this.setStatus('waiting_captcha', { captchaImage: captchaBase64 });
         this.log('کپچا دریافت شد. لطفاً کد را در پنل وارد کنید...', 'info');
@@ -194,7 +206,11 @@ class DischargeService extends EventEmitter {
                     this.log(`گزارش تخلیه کاربر در فایل report_${user.username}_${userTimestamp}.json ذخیره شد.`, 'success');
 
                 } catch (userErr) {
-                    this.log(`خطا در بررسی کاربر ${user.name}: ${userErr.message}`, 'error');
+                    if (userErr.message === 'CAPTCHA_SKIPPED') {
+                        this.log(`بررسی کاربر ${user.name} به دلیل رد کردن کپچا متوقف و به کاربر بعدی منتقل شد.`, 'warning');
+                    } else {
+                        this.log(`خطا در بررسی کاربر ${user.name}: ${userErr.message}`, 'error');
+                    }
                 } finally {
                     if (this.context) {
                         await this.context.close().catch(() => {});
@@ -258,7 +274,16 @@ class DischargeService extends EventEmitter {
             const captchaBuffer = await captchaElem.screenshot();
             const captchaBase64 = `data:image/jpeg;base64,${captchaBuffer.toString('base64')}`;
 
-            const captchaCode = await this.waitForCaptchaInput(captchaBase64);
+            let captchaCode;
+            try {
+                captchaCode = await this.waitForCaptchaInput(captchaBase64);
+            } catch (err) {
+                if (err.message === 'CAPTCHA_SKIPPED') {
+                    this.log(`کپچای کاربر ${user.name} رد شد (اسکیپ).`, 'warning');
+                    throw err;
+                }
+                throw err;
+            }
             if (!this.isRunning) return;
 
             await this.page.locator('#txtimgcode').fill(captchaCode.trim());

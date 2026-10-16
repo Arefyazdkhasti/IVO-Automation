@@ -317,8 +317,8 @@ function updateAuthUI() {
           loggedInRoleBadge.className = 'role-badge';
         }
       }
-      // Auto-select user in permit workflow dropdown
-      if (user.username && typeof userSelect !== 'undefined' && userSelect) {
+      // Auto-select user in permit workflow dropdown (only for farmers, not admin)
+      if (user.username && user.role !== 'admin' && user.username.toLowerCase() !== 'admin' && typeof userSelect !== 'undefined' && userSelect) {
         userSelect.value = user.username;
         if (typeof usersList !== 'undefined') {
           const u = usersList.find(x => x.username === user.username);
@@ -353,6 +353,7 @@ const epidemInput = document.getElementById('epidemInput');
 const hatchInput = document.getElementById('hatchInput');
 const slaughterSelect = document.getElementById('slaughterSelect');
 const quantityInput = document.getElementById('quantityInput');
+const permitScopeSelect = document.getElementById('permitScopeSelect');
 const showBrowserCheck = document.getElementById('showBrowserCheck');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
@@ -388,6 +389,7 @@ const captchaModal = document.getElementById('captchaModal');
 const captchaImage = document.getElementById('captchaImage');
 const captchaInput = document.getElementById('captchaInput');
 const submitCaptchaBtn = document.getElementById('submitCaptchaBtn');
+const skipCaptchaBtn = document.getElementById('skipCaptchaBtn');
 const captchaErrorText = document.getElementById('captchaErrorText');
 
 const editCodesModal = document.getElementById('editCodesModal');
@@ -470,13 +472,20 @@ async function loadUsers() {
     if (data.success && data.users) {
       usersList = data.users;
 
+      // Filter out admin (مدیر کل سامانه دامپزشکی) from farmer select lists
+      const farmerUsers = usersList.filter((u) => {
+        const uname = (u.username || '').toLowerCase();
+        const role = (u.role || '').toLowerCase();
+        return uname !== 'admin' && role !== 'admin';
+      });
+
       const prevSelected = userSelect.value;
       // Populate permit user select
       userSelect.innerHTML = '<option value="" disabled selected>-- یک دامدار را انتخاب کنید --</option>';
       // Populate discharge user select with 'ALL' as first and default
       dischargeUserSelect.innerHTML = '<option value="ALL" selected>⚡ همه کاربران (بررسی دسته‌ای تمام مرغداران)</option>';
 
-      usersList.forEach((user) => {
+      farmerUsers.forEach((user) => {
         const opt1 = document.createElement('option');
         opt1.value = user.username;
         opt1.textContent = `${user.name} (${user.username})`;
@@ -488,13 +497,16 @@ async function loadUsers() {
         dischargeUserSelect.appendChild(opt2);
       });
 
-      // Restore selection or default to first
-      if (prevSelected && usersList.some((u) => u.username === prevSelected)) {
+      // Restore selection or default to first farmer
+      if (prevSelected && prevSelected.toLowerCase() !== 'admin' && farmerUsers.some((u) => u.username === prevSelected)) {
         userSelect.value = prevSelected;
-        updateUserPreview(usersList.find((u) => u.username === prevSelected));
-      } else if (usersList.length > 0) {
+        updateUserPreview(farmerUsers.find((u) => u.username === prevSelected));
+      } else if (farmerUsers.length > 0) {
         userSelect.selectedIndex = 1;
-        updateUserPreview(usersList[0]);
+        updateUserPreview(farmerUsers[0]);
+      } else {
+        userSelect.value = '';
+        updateUserPreview(null);
       }
       dischargeUserSelect.value = 'ALL';
       renderAdminUsers();
@@ -934,6 +946,7 @@ function updateUIState(running, service) {
     userSelect.disabled = running;
     slaughterSelect.disabled = running;
     quantityInput.disabled = running;
+    if (permitScopeSelect) permitScopeSelect.disabled = running;
     breedSelect.disabled = running;
     hatchInput.disabled = running;
     if (candidateCodesInput) candidateCodesInput.disabled = running;
@@ -989,6 +1002,36 @@ async function submitCaptcha() {
   }
 }
 
+async function skipCaptcha() {
+  if (skipCaptchaBtn) {
+    skipCaptchaBtn.disabled = true;
+    skipCaptchaBtn.textContent = 'در حال رد کردن...';
+  }
+
+  try {
+    const res = await fetch('/api/skip-captcha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeCaptchaModal();
+      showToast('کپچا با موفقیت رد شد.', 'info');
+    } else {
+      captchaErrorText.textContent = data.error || 'خطا در رد کردن کپچا';
+      captchaErrorText.style.display = 'block';
+    }
+  } catch (err) {
+    captchaErrorText.textContent = 'خطا در ارتباط با سرور: ' + err.message;
+    captchaErrorText.style.display = 'block';
+  } finally {
+    if (skipCaptchaBtn) {
+      skipCaptchaBtn.disabled = false;
+      skipCaptchaBtn.textContent = 'رد کردن (اسکیپ) ⏭️';
+    }
+  }
+}
+
 // Setup Event Listeners
 function setupListeners() {
 
@@ -1020,16 +1063,19 @@ function setupListeners() {
       }
       const quantity = quantityInput.value.trim() || '2000';
       const breed = breedSelect.value || 'راس';
+      const permitScope = permitScopeSelect ? permitScopeSelect.value : 'inside';
+      const scopeLabel = permitScope === 'outside' ? 'خارج استانی' : 'داخل استانی';
 
       permitsQueue.push({
         slaughterhouseCode: selectedSlaughterCode,
         slaughterhouseName: selectedSlaughterName,
         quantity: quantity,
         breed: breed,
+        permitScope: permitScope,
       });
 
       renderPermitsQueue();
-      showToast(`کشتارگاه ${selectedSlaughterName} (${quantity} قطعه) به لیست افزوده شد.`, 'info');
+      showToast(`کشتارگاه ${selectedSlaughterName} (${quantity} قطعه - ${scopeLabel}) به لیست افزوده شد.`, 'info');
     });
   }
 
@@ -1156,11 +1202,13 @@ function setupListeners() {
       }
       const quantity = quantityInput.value.trim() || '2000';
       const breed = breedSelect.value || 'راس';
+      const permitScope = permitScopeSelect ? permitScopeSelect.value : 'inside';
       permitsToSend = [{
         slaughterhouseCode: selectedSlaughterCode,
         slaughterhouseName: selectedSlaughterName,
         quantity: quantity,
         breed: breed,
+        permitScope: permitScope,
       }];
     }
 
@@ -1187,6 +1235,7 @@ function setupListeners() {
           username: selectedUsername,
           headless: headless,
           permits: permitsToSend,
+          permitScope: permitScopeSelect ? permitScopeSelect.value : 'inside',
           candidateCodes: candidateCodes,
           breed: breed,
           hatchingPermitCode: hatchingPermitCode,
@@ -1327,6 +1376,9 @@ function setupListeners() {
   });
 
   submitCaptchaBtn.addEventListener('click', submitCaptcha);
+  if (skipCaptchaBtn) {
+    skipCaptchaBtn.addEventListener('click', skipCaptcha);
+  }
   captchaInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       submitCaptcha();
@@ -2193,12 +2245,18 @@ function renderPermitsQueue() {
 
   container.innerHTML = '';
   permitsQueue.forEach((item, idx) => {
+    const isOutside = item.permitScope === 'outside';
+    const scopeBadge = isOutside
+      ? '<span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; font-size: 0.68rem; padding: 0.1rem 0.4rem; border-radius: 3px;">خارج استانی</span>'
+      : '<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #3b82f6; font-size: 0.68rem; padding: 0.1rem 0.4rem; border-radius: 3px;">داخل استانی</span>';
+
     const row = document.createElement('div');
     row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; background: var(--color-surface-2); padding: 0.4rem 0.65rem; border-radius: 4px; border: 1px solid var(--color-hairline-dark); font-size: 0.8rem;';
     row.innerHTML = `
       <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
         <span style="font-weight: bold; color: var(--color-primary); font-family: monospace;">#${idx + 1}</span>
         <span style="color: var(--color-ink-white); font-weight: 500;">${item.slaughterhouseName || item.slaughterhouseCode}</span>
+        ${scopeBadge}
         <span style="color: #10b981; font-family: monospace;">(${Number(item.quantity).toLocaleString('fa-IR')} قطعه)</span>
         <span style="color: var(--color-ink-dim); font-size: 0.72rem;">[نژاد: ${item.breed || 'راس'}]</span>
       </div>

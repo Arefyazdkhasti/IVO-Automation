@@ -44,6 +44,21 @@ class SystemController {
         }
     }
 
+    static skipCaptcha(req, res) {
+        try {
+            const handledPermit = permitService.skipCaptcha();
+            const handledDischarge = dischargeService.skipCaptcha();
+
+            if (!handledPermit && !handledDischarge) {
+                return res.status(400).json({ success: false, error: 'سیستم در حال حاضر در انتظار کپچا نیست.' });
+            }
+
+            res.json({ success: true, message: 'کپچا با موفقیت رد شد.' });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    }
+
     static async stopAutomation(req, res) {
         try {
             await permitService.stop();

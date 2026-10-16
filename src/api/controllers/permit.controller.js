@@ -79,8 +79,8 @@ class PermitController {
             }
 
             const user = await UsersRepository.findByUsername(username);
-            if (!user) {
-                return res.status(404).json({ success: false, error: 'کاربر مورد نظر یافت نشد.' });
+            if (!user || (user.username || '').toLowerCase() === 'admin' || (user.role || '').toLowerCase() === 'admin') {
+                return res.status(404).json({ success: false, error: 'کاربر مورد نظر یافت نشد یا مجاز به صدور مجوز نیست.' });
             }
 
             // Create a local copy so runtime overrides don't pollute the persistent file unexpectedly
@@ -93,12 +93,19 @@ class PermitController {
             }
 
             const permitsPayload = Array.isArray(permits) && permits.length > 0
-                ? permits
+                ? permits.map((p) => ({
+                    slaughterhouseCode: p.slaughterhouseCode,
+                    slaughterhouseName: p.slaughterhouseName,
+                    quantity: p.quantity || '2000',
+                    breed: p.breed || breed || userPayload.breed || 'راس',
+                    permitScope: p.permitScope || 'inside',
+                }))
                 : [{
                     slaughterhouseCode,
                     slaughterhouseName,
                     quantity: quantity || '2000',
                     breed: breed || userPayload.breed || 'راس',
+                    permitScope: req.body.permitScope || 'inside',
                 }];
 
             // Run asynchronously

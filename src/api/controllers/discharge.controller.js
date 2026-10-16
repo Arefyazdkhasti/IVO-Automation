@@ -14,11 +14,11 @@ class DischargeController {
             let targetUsers = [];
 
             if (!username || username === 'ALL') {
-                targetUsers = allUsers;
+                targetUsers = allUsers.filter(u => (u.username || '').toLowerCase() !== 'admin' && (u.role || '').toLowerCase() !== 'admin');
             } else {
                 const user = await UsersRepository.findByUsername(username);
-                if (!user) {
-                    return res.status(404).json({ success: false, error: 'کاربر مورد نظر یافت نشد.' });
+                if (!user || (user.username || '').toLowerCase() === 'admin' || (user.role || '').toLowerCase() === 'admin') {
+                    return res.status(404).json({ success: false, error: 'مرغدار مورد نظر یافت نشد.' });
                 }
                 targetUsers = [user];
             }
