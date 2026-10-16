@@ -1,0 +1,20 @@
+services:
+  app:
+    build: .
+    container_name: ivo-automation
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    volumes:
+      - app-data:/app/data
+      - app-results:/app/results
+    shm_size: 1gb
+    restart: unless-stopped
+
+volumes:
+  app-data:
+  app-results:
