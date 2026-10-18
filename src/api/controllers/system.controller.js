@@ -1,6 +1,7 @@
 const permitService = require('../../features/permit/permit.service');
 const dischargeService = require('../../features/discharge/discharge.service');
 const { hasDisplayServer, serverRequiresHeadless } = require('../../core/playwright-env');
+const { checkPortalFromApp } = require('../../core/portal-connectivity');
 const sseBroker = require('../sse');
 
 class SystemController {
@@ -23,6 +24,18 @@ class SystemController {
                     : 'اجرای Headed فعال است (DISPLAY یا Xvfb).',
             },
         });
+    }
+
+    static async getPortalHealth(req, res) {
+        try {
+            const portal = await checkPortalFromApp();
+            res.json({
+                success: true,
+                portal,
+            });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
     }
 
     static getStatus(req, res) {

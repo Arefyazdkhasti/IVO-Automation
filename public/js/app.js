@@ -1168,6 +1168,39 @@ function setupNavigationRail() {
       if (!isDesktop()) closeMobileNav();
     });
   });
+
+  const portalHealthBtn = document.getElementById('portalHealthBtn');
+  const portalHealthResult = document.getElementById('portalHealthResult');
+  portalHealthBtn?.addEventListener('click', async () => {
+    if (!portalHealthResult) return;
+    portalHealthBtn.disabled = true;
+    portalHealthResult.classList.remove('hidden');
+    portalHealthResult.textContent = 'در حال تست از داخل سرور (حداکثر ~۲۰ ثانیه)...';
+    portalHealthResult.className = 'text-[10px] text-slate-400 leading-relaxed';
+    try {
+      const res = await fetch('/api/health/portal');
+      const data = await res.json();
+      if (!data.success || !data.portal) {
+        portalHealthResult.textContent = data.error || 'خطا در تست';
+        portalHealthResult.classList.add('text-rose-300');
+        return;
+      }
+      const p = data.portal;
+      if (p.reachable) {
+        portalHealthResult.textContent =
+          `✓ متصل — HTTP ${p.statusCode} — ${p.latencyMs}ms — هاست: ${p.server?.hostname || '-'}`;
+        portalHealthResult.className = 'text-[10px] text-emerald-400 leading-relaxed';
+      } else {
+        portalHealthResult.textContent = `✗ قطع — ${p.error || 'نامشخص'} — ${p.latencyMs}ms. ${p.hint || ''}`;
+        portalHealthResult.className = 'text-[10px] text-rose-300 leading-relaxed';
+      }
+    } catch (err) {
+      portalHealthResult.textContent = 'خطا: ' + err.message;
+      portalHealthResult.classList.add('text-rose-300');
+    } finally {
+      portalHealthBtn.disabled = false;
+    }
+  });
 }
 
 // Setup Event Listeners
