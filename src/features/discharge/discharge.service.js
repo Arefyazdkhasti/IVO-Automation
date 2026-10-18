@@ -1,5 +1,10 @@
 const { chromium } = require('playwright');
 const { resolvePlaywrightHeadless } = require('../../core/playwright-env');
+const {
+    getChromiumLaunchOptions,
+    createPortalContext,
+    gotoPortalPage,
+} = require('../../core/playwright-browser');
 const EventEmitter = require('events');
 const fs = require('fs');
 const path = require('path');
@@ -116,10 +121,7 @@ class DischargeService extends EventEmitter {
                     'warning',
                 );
             }
-            this.browser = await chromium.launch({
-                headless,
-                slowMo: 60,
-            });
+            this.browser = await chromium.launch(getChromiumLaunchOptions({ headless, slowMo: 60 }));
 
             for (let uIdx = 0; uIdx < targetUsers.length; uIdx++) {
                 if (!this.isRunning) break;
@@ -129,9 +131,7 @@ class DischargeService extends EventEmitter {
                 this.log(`[${uIdx + 1}/${targetUsers.length}] آغاز فرآیند برای: ${user.name} (${user.username})`, 'info');
                 this.log(`======================================================`, 'info');
 
-                this.context = await this.browser.newContext({
-                    viewport: { width: 1280, height: 800 },
-                });
+                this.context = await createPortalContext(this.browser);
                 this.page = await this.context.newPage();
 
                 this.page.on('dialog', async (dialog) => {
@@ -265,7 +265,7 @@ class DischargeService extends EventEmitter {
         this.setStatus('logging_in');
         this.log(`ورود به سامانه برای ${user.name}...`, 'info');
 
-        await this.page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await gotoPortalPage(this.page, LOGIN_URL, (msg, level) => this.log(msg, level || 'info'));
 
         let loginSuccess = false;
         let attempt = 0;

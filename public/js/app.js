@@ -458,6 +458,7 @@ async function init() {
 
   // 2. Setup listeners for navigation rail, login form, and admin tools
   setupListeners();
+  setupNavigationRail();
 
   // 3. Verify session if token exists
   const token = localStorage.getItem('ivo_auth_token');
@@ -1053,6 +1054,122 @@ async function skipCaptcha() {
   }
 }
 
+function setupNavigationRail() {
+  const navRail = document.getElementById('navRail');
+  const toggle = document.getElementById('navRailToggle');
+  const backdrop = document.getElementById('navRailBackdrop');
+  const mobileOpen = document.getElementById('mobileNavOpen');
+  const userInfoBtn = document.getElementById('userInfoBtn');
+  const userInfoClose = document.getElementById('userInfoCloseBtn');
+  const userInfoPanel = document.getElementById('userInfoPanel');
+  const mobileUserInfo = document.getElementById('mobileUserInfoBtn');
+  const COLLAPSED_KEY = 'ivo_nav_rail_collapsed';
+
+  const isDesktop = () => window.matchMedia('(min-width: 768px)').matches;
+
+  const applyCollapsed = (collapsed) => {
+    if (!navRail) return;
+    if (!isDesktop()) {
+      navRail.classList.remove('navigation-rail--collapsed');
+      return;
+    }
+    navRail.classList.toggle('navigation-rail--collapsed', collapsed);
+    if (toggle) toggle.setAttribute('aria-expanded', String(!collapsed));
+  };
+
+  const openMobileNav = () => {
+    navRail?.classList.add('navigation-rail--mobile-open');
+    backdrop?.classList.add('is-visible');
+    document.body.classList.add('nav-rail-open');
+  };
+
+  const closeMobileNav = () => {
+    navRail?.classList.remove('navigation-rail--mobile-open');
+    if (!userInfoPanel?.classList.contains('is-open')) {
+      backdrop?.classList.remove('is-visible');
+      document.body.classList.remove('nav-rail-open');
+    }
+  };
+
+  const syncViewportRail = () => {
+    if (!navRail) return;
+    if (isDesktop()) {
+      applyCollapsed(localStorage.getItem(COLLAPSED_KEY) === '1');
+      closeMobileNav();
+    } else {
+      navRail.classList.remove('navigation-rail--collapsed');
+      closeMobileNav();
+    }
+  };
+
+  syncViewportRail();
+
+  toggle?.addEventListener('click', () => {
+    if (!isDesktop()) {
+      closeMobileNav();
+      return;
+    }
+    const collapsed = !navRail.classList.contains('navigation-rail--collapsed');
+    applyCollapsed(collapsed);
+    localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0');
+  });
+
+  const openUserInfo = () => {
+    userInfoPanel?.removeAttribute('hidden');
+    userInfoPanel?.classList.add('is-open');
+    if (!isDesktop()) {
+      userInfoPanel?.classList.add('user-info-panel--mobile');
+      backdrop?.classList.add('is-visible');
+      document.body.classList.add('nav-rail-open');
+    }
+    userInfoBtn?.setAttribute('aria-expanded', 'true');
+  };
+
+  const closeUserInfo = () => {
+    userInfoPanel?.setAttribute('hidden', '');
+    userInfoPanel?.classList.remove('is-open', 'user-info-panel--mobile');
+    if (!isDesktop() && !navRail?.classList.contains('navigation-rail--mobile-open')) {
+      backdrop?.classList.remove('is-visible');
+      document.body.classList.remove('nav-rail-open');
+    }
+    userInfoBtn?.setAttribute('aria-expanded', 'false');
+  };
+
+  userInfoBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (userInfoPanel?.classList.contains('is-open')) closeUserInfo();
+    else openUserInfo();
+  });
+
+  mobileUserInfo?.addEventListener('click', () => openUserInfo());
+  userInfoClose?.addEventListener('click', closeUserInfo);
+
+  mobileOpen?.addEventListener('click', openMobileNav);
+  backdrop?.addEventListener('click', () => {
+    closeUserInfo();
+    closeMobileNav();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!userInfoPanel?.classList.contains('is-open')) return;
+    if (e.target.closest('#userInfoPanel, #userInfoBtn, #mobileUserInfoBtn')) return;
+    closeUserInfo();
+  });
+
+  window.addEventListener('resize', () => {
+    syncViewportRail();
+    if (userInfoPanel?.classList.contains('is-open') && isDesktop()) {
+      userInfoPanel.classList.remove('user-info-panel--mobile');
+    }
+  });
+
+  navRail?.querySelectorAll('.rail-menu-item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!isDesktop()) closeMobileNav();
+    });
+  });
+}
+
 // Setup Event Listeners
 function setupListeners() {
 
@@ -1507,9 +1624,10 @@ function setupListeners() {
 
   const syncSupabaseBtn = document.getElementById('syncSupabaseBtn');
   if (syncSupabaseBtn) {
+    const syncBtnLabel = syncSupabaseBtn.querySelector('.navigation-rail__footer-btn-text');
     syncSupabaseBtn.addEventListener('click', async () => {
       syncSupabaseBtn.disabled = true;
-      syncSupabaseBtn.textContent = '⏳ در حال ارسال...';
+      if (syncBtnLabel) syncBtnLabel.textContent = 'در حال ارسال...';
       try {
         const res = await fetch('/api/database/sync', { method: 'POST' });
         const data = await res.json();
@@ -1523,7 +1641,7 @@ function setupListeners() {
         showToast('خطا در ارتباط با سرور: ' + err.message, 'error');
       } finally {
         syncSupabaseBtn.disabled = false;
-        syncSupabaseBtn.textContent = '🔄 همگام‌سازی با Supabase';
+        if (syncBtnLabel) syncBtnLabel.textContent = 'همگام‌سازی';
       }
     });
   }

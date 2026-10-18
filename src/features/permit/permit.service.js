@@ -1,5 +1,10 @@
 const { chromium } = require('playwright');
 const { resolvePlaywrightHeadless } = require('../../core/playwright-env');
+const {
+    getChromiumLaunchOptions,
+    createPortalContext,
+    gotoPortalPage,
+} = require('../../core/playwright-browser');
 const EventEmitter = require('events');
 const fs = require('fs');
 const path = require('path');
@@ -167,14 +172,9 @@ class PermitService extends EventEmitter {
                     'warning',
                 );
             }
-            this.browser = await chromium.launch({
-                headless,
-                slowMo: 100,
-            });
+            this.browser = await chromium.launch(getChromiumLaunchOptions({ headless, slowMo: 100 }));
 
-            this.context = await this.browser.newContext({
-                viewport: { width: 1280, height: 800 },
-            });
+            this.context = await createPortalContext(this.browser);
             this.page = await this.context.newPage();
 
             // Setup dialog listener for alerts/confirmations
@@ -720,14 +720,9 @@ class PermitService extends EventEmitter {
                     'warning',
                 );
             }
-            this.browser = await chromium.launch({
-                headless,
-                slowMo: 100,
-            });
+            this.browser = await chromium.launch(getChromiumLaunchOptions({ headless, slowMo: 100 }));
 
-            this.context = await this.browser.newContext({
-                viewport: { width: 1280, height: 800 },
-            });
+            this.context = await createPortalContext(this.browser);
             this.page = await this.context.newPage();
 
             this.lastDialogMsg = '';
@@ -774,7 +769,7 @@ class PermitService extends EventEmitter {
         this.setStatus('logging_in');
         this.log(`در حال ورود به سامانه دامپزشکی برای ${user.name}...`, 'info');
 
-        await this.page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await gotoPortalPage(this.page, LOGIN_URL, (msg, level) => this.log(msg, level || 'info'));
 
         let loginSuccess = false;
         let attempt = 0;
