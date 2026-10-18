@@ -9,6 +9,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      # headless در سرور پیش‌فرض است. برای Chromium headed داخل کانتینر (با Xvfb):
+      # PLAYWRIGHT_USE_XVFB: "true"
+      # PLAYWRIGHT_HEADLESS: "false"
       PLAYWRIGHT_HEADLESS: "true"
     volumes:
       - app-data:/app/data

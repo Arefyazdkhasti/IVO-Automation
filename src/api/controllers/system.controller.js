@@ -1,6 +1,6 @@
 const permitService = require('../../features/permit/permit.service');
 const dischargeService = require('../../features/discharge/discharge.service');
-const { serverRequiresHeadless } = require('../../core/playwright-env');
+const { hasDisplayServer, serverRequiresHeadless } = require('../../core/playwright-env');
 const sseBroker = require('../sse');
 
 class SystemController {
@@ -17,6 +17,10 @@ class SystemController {
             playwright: {
                 headlessOnly,
                 canShowBrowser: !headlessOnly,
+                hasDisplay: hasDisplayServer(),
+                hint: headlessOnly
+                    ? 'مرورگر روی سرور بدون مانیتور فقط Headless اجرا می‌شود. برای دیدن پنجره روی لپ‌تاپ خودتان، اپ را لوکال اجرا کنید.'
+                    : 'اجرای Headed فعال است (DISPLAY یا Xvfb).',
             },
         });
     }
