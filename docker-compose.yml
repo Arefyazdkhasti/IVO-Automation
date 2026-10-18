@@ -9,6 +9,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      PLAYWRIGHT_HEADLESS: "true"
     volumes:
       - app-data:/app/data
       - app-results:/app/results

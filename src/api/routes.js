@@ -14,6 +14,7 @@ router.get('/events', SystemController.connectSSE);
 
 // System Status & Controls
 router.get('/status', SystemController.getStatus);
+router.get('/config', SystemController.getRuntimeConfig);
 router.post('/submit-captcha', requireAuth, SystemController.submitCaptcha);
 router.post('/skip-captcha', requireAuth, SystemController.skipCaptcha);
 router.post('/stop', requireAuth, SystemController.stopAutomation);

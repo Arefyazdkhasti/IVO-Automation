@@ -1,5 +1,6 @@
 const permitService = require('../../features/permit/permit.service');
 const dischargeService = require('../../features/discharge/discharge.service');
+const { serverRequiresHeadless } = require('../../core/playwright-env');
 const sseBroker = require('../sse');
 
 class SystemController {
@@ -7,6 +8,17 @@ class SystemController {
         sseBroker.addClient(req, res);
         // Send initial status
         res.write(`event: status\ndata: ${JSON.stringify({ status: permitService.currentStatus })}\n\n`);
+    }
+
+    static getRuntimeConfig(req, res) {
+        const headlessOnly = serverRequiresHeadless();
+        res.json({
+            success: true,
+            playwright: {
+                headlessOnly,
+                canShowBrowser: !headlessOnly,
+            },
+        });
     }
 
     static getStatus(req, res) {

@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const { resolvePlaywrightHeadless } = require('../../core/playwright-env');
 const EventEmitter = require('events');
 const fs = require('fs');
 const path = require('path');
@@ -108,8 +109,15 @@ class DischargeService extends EventEmitter {
         let totalDischargedAll = 0;
 
         try {
+            const { headless, forcedHeadless } = resolvePlaywrightHeadless(options.headless);
+            if (forcedHeadless) {
+                this.log(
+                    'سرور بدون محیط گرافیکی است (Docker/Linux). مرورگر به‌صورت Headless اجرا می‌شود.',
+                    'warning',
+                );
+            }
             this.browser = await chromium.launch({
-                headless: options.headless !== undefined ? options.headless : false,
+                headless,
                 slowMo: 60,
             });
 

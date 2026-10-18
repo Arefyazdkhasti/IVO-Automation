@@ -426,7 +426,28 @@ async function loadInitialAppData(force = false) {
 }
 
 // Initialize Application
+async function applyPlaywrightUiConfig() {
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    if (!data.success || !data.playwright?.headlessOnly) return;
+
+    if (showBrowserCheck) {
+      showBrowserCheck.checked = false;
+      showBrowserCheck.disabled = true;
+    }
+    if (dischargeHeadlessCheck) {
+      dischargeHeadlessCheck.checked = false;
+      dischargeHeadlessCheck.disabled = true;
+    }
+  } catch (err) {
+    console.warn('Could not load runtime config:', err);
+  }
+}
+
 async function init() {
+  await applyPlaywrightUiConfig();
+
   // 1. Calculate device fingerprint and update UI badge
   const fp = await getDeviceFingerprint();
   const badge = document.getElementById('loginFpBadge');
