@@ -2,12 +2,14 @@ const { chromium } = require('playwright');
 const { resolvePlaywrightHeadless } = require('../../core/playwright-env');
 const {
     getChromiumLaunchOptions,
+    launchPlaywrightChromium,
     createPortalContext,
     gotoPortalPage,
 } = require('../../core/playwright-browser');
 const EventEmitter = require('events');
 const fs = require('fs');
 const path = require('path');
+const { RESULTS_DIR } = require('../../config/paths');
 
 const { URLS, DEFAULTS } = require('../../config/constants');
 const { isTodayPersian } = require('../../core/jalali');
@@ -26,12 +28,14 @@ class PermitService extends EventEmitter {
         this.browser = null;
         this.context = null;
         this.page = null;
+        this.currentUser = null;
         this.isRunning = false;
         this.currentStatus = 'idle'; // idle, waiting_captcha, navigating, checking_codes, cooldown, fetching_payment_links, waiting_closure_confirmation, success, failed
         this.captchaResolver = null;
         this.captchaRejecter = null;
         this.closureResolver = null;
         this.cooldownSkipResolver = null;
+        this.skipCooldownRequested = false;
         this.sessionPermits = PermitRepository.getSessionPermits();
         this.sessionPaymentLinks = PermitRepository.getPaymentLinks();
     }
@@ -68,19 +72,74 @@ class PermitService extends EventEmitter {
             this.closureResolver = null;
         }
         if (this.cooldownSkipResolver) {
+            this.skipCooldownRequested = true;
             this.cooldownSkipResolver();
             this.cooldownSkipResolver = null;
         }
         if (this.context) {
             await this.context.close().catch(() => {});
             this.context = null;
+            this.page = null;
         }
         if (this.browser) {
             await this.browser.close().catch(() => {});
             this.browser = null;
         }
+        this.currentUser = null;
         this.setStatus('idle');
         this.log('مرورگر و فرآیند متوقف شدند.', 'warning');
+    }
+
+    async ensureBrowserAndSession(user, options = {}) {
+        const canReuse =
+            this.browser &&
+            this.browser.isConnected &&
+            this.browser.isConnected() &&
+            this.context &&
+            this.page &&
+            !this.page.isClosed() &&
+            this.currentUser === user.username;
+
+        if (canReuse) {
+            try {
+                const currentUrl = this.page.url();
+                if (currentUrl && !currentUrl.includes('Login_Required.aspx')) {
+                    this.log(`✓ استفاده مجدد از نشست فعال (Session) برای مرغدار ${user.name} بدون نیاز به لاگین مجدد...`, 'info');
+                    return;
+                }
+            } catch (_) {}
+        }
+
+        // Close stale context if switching user or invalid
+        if (this.context) {
+            await this.context.close().catch(() => {});
+            this.context = null;
+            this.page = null;
+        }
+
+        if (!this.browser || !this.browser.isConnected || !this.browser.isConnected()) {
+            const { headless, forcedHeadless } = resolvePlaywrightHeadless(options.headless);
+            if (forcedHeadless) {
+                this.log(
+                    'سرور بدون محیط گرافیکی است (Docker/Linux). مرورگر به‌صورت Headless اجرا می‌شود.',
+                    'warning',
+                );
+            }
+            this.browser = await launchPlaywrightChromium({ headless, slowMo: 100 });
+        }
+
+        this.context = await createPortalContext(this.browser);
+        this.page = await this.context.newPage();
+
+        this.lastDialogMsg = '';
+        this.page.on('dialog', async (dialog) => {
+            this.lastDialogMsg = dialog.message();
+            this.log(`پیام سیستم پورتال (Alert): "${this.lastDialogMsg}"`, 'warning');
+            await dialog.accept().catch(() => {});
+        });
+
+        this.currentUser = user.username;
+        await this.performLogin(user);
     }
 
     submitCaptcha(code) {
@@ -116,10 +175,13 @@ class PermitService extends EventEmitter {
     }
 
     skipCooldown() {
-        if (this.cooldownSkipResolver) {
-            this.log('تایمر انتظار ۲ دقیقه‌ای با درخواست کاربر رد شد.', 'info');
-            this.cooldownSkipResolver();
-            this.cooldownSkipResolver = null;
+        if (this.currentStatus === 'cooldown' || this.cooldownSkipResolver) {
+            this.skipCooldownRequested = true;
+            this.log('تایمر انتظار با درخواست کاربر رد شد.', 'info');
+            if (this.cooldownSkipResolver) {
+                this.cooldownSkipResolver();
+                this.cooldownSkipResolver = null;
+            }
             return true;
         }
         return false;
@@ -165,28 +227,7 @@ class PermitService extends EventEmitter {
         this.log(`شروع فرآیند صدور ${permitsList.length} مجوز برای مرغدار: ${user.name} (${user.username})`, 'info');
 
         try {
-            const { headless, forcedHeadless } = resolvePlaywrightHeadless(options.headless);
-            if (forcedHeadless) {
-                this.log(
-                    'سرور بدون محیط گرافیکی است (Docker/Linux). مرورگر به‌صورت Headless اجرا می‌شود.',
-                    'warning',
-                );
-            }
-            this.browser = await chromium.launch(getChromiumLaunchOptions({ headless, slowMo: 100 }));
-
-            this.context = await createPortalContext(this.browser);
-            this.page = await this.context.newPage();
-
-            // Setup dialog listener for alerts/confirmations
-            this.lastDialogMsg = '';
-            this.page.on('dialog', async (dialog) => {
-                this.lastDialogMsg = dialog.message();
-                this.log(`پیام سیستم پورتال (Alert): "${this.lastDialogMsg}"`, 'warning');
-                await dialog.accept().catch(() => {});
-            });
-
-            // 1. Perform login with captcha verification (only ONCE!)
-            await this.performLogin(user);
+            await this.ensureBrowserAndSession(user, options);
             if (!this.isRunning) return { success: false, reason: 'stopped' };
 
             let workingTrackingCode = null;
@@ -203,9 +244,10 @@ class PermitService extends EventEmitter {
                 this.log(`[مجوز ${pIdx + 1} از ${permitsList.length}] نوع: ${scopeLabel} | مقصد: ${currentPermitItem.slaughterhouseName || currentPermitItem.slaughterhouseCode} | تعداد: ${currentPermitItem.quantity} قطعه`, 'info');
                 this.log(`======================================================`, 'info');
 
-                // If not the first permit, wait 2 minutes (cooldown)
+                // If not the first permit, wait cooldown
                 if (pIdx > 0) {
-                    this.log(`⏳ رعایت فاصله زمانی: شروع تایمر ۲ دقیقه‌ای (${cooldownSeconds} ثانیه) قبل از ثبت مجوز بعدی...`, 'info');
+                    const cooldownMinText = (cooldownSeconds % 60 === 0) ? `${cooldownSeconds / 60} دقیقه‌ای` : `${cooldownSeconds} ثانیه‌ای`;
+                    this.log(`⏳ رعایت فاصله زمانی: شروع تایمر ${cooldownMinText} (${cooldownSeconds} ثانیه) قبل از ثبت مجوز بعدی...`, 'info');
                     await this.waitCooldown(cooldownSeconds, pIdx, permitsList.length, currentPermitItem);
                     if (!this.isRunning) break;
                 }
@@ -340,8 +382,9 @@ class PermitService extends EventEmitter {
     }
 
     async waitCooldown(seconds, nextIndex, total, nextItem) {
+        this.skipCooldownRequested = false;
         for (let s = seconds; s > 0; s--) {
-            if (!this.isRunning) return;
+            if (!this.isRunning || this.skipCooldownRequested) break;
             this.setStatus('cooldown', {
                 remainingSeconds: s,
                 totalSeconds: seconds,
@@ -358,14 +401,21 @@ class PermitService extends EventEmitter {
             });
 
             await new Promise((resolve) => {
-                this.cooldownSkipResolver = resolve;
-                setTimeout(() => {
+                let timer = null;
+                this.cooldownSkipResolver = () => {
+                    if (timer) clearTimeout(timer);
+                    this.cooldownSkipResolver = null;
+                    resolve();
+                };
+                timer = setTimeout(() => {
                     this.cooldownSkipResolver = null;
                     resolve();
                 }, 1000);
             });
+            if (this.skipCooldownRequested) break;
         }
         this.cooldownSkipResolver = null;
+        this.skipCooldownRequested = false;
     }
 
     async useExistingTrackingCode(code) {
@@ -713,29 +763,9 @@ class PermitService extends EventEmitter {
         this.log(`شروع استعلام مستقیم لینک‌های پرداخت برای: ${user.name} (${user.username})`, 'info');
 
         try {
-            const { headless, forcedHeadless } = resolvePlaywrightHeadless(options.headless);
-            if (forcedHeadless) {
-                this.log(
-                    'سرور بدون محیط گرافیکی است (Docker/Linux). مرورگر به‌صورت Headless اجرا می‌شود.',
-                    'warning',
-                );
-            }
-            this.browser = await chromium.launch(getChromiumLaunchOptions({ headless, slowMo: 100 }));
+            await this.ensureBrowserAndSession(user, options);
 
-            this.context = await createPortalContext(this.browser);
-            this.page = await this.context.newPage();
-
-            this.lastDialogMsg = '';
-            this.page.on('dialog', async (dialog) => {
-                this.lastDialogMsg = dialog.message();
-                this.log(`پیام سیستم: "${this.lastDialogMsg}"`, 'warning');
-                await dialog.accept().catch(() => {});
-            });
-
-            // 1. Login with captcha verification
-            await this.performLogin(user);
-
-            // 2. Fetch payment links from reports
+            // Fetch payment links from reports
             const paymentLinks = await this.fetchPaymentLinksFromReports();
 
             this.setStatus('success', {
@@ -750,14 +780,116 @@ class PermitService extends EventEmitter {
             this.setStatus('failed', { message: err.message });
             throw err;
         } finally {
-            if (this.context) {
-                await this.context.close().catch(() => {});
-                this.context = null;
+            this.isRunning = false;
+        }
+    }
+
+    async captureTodayResultsScreenshot(user, options = {}) {
+        if (this.isRunning) {
+            throw new Error('یک عملیات دیگر در حال حاضر فعال است. لطفاً تا اتمام آن صبر کنید.');
+        }
+
+        this.isRunning = true;
+        this.setStatus('starting');
+        this.log(`تهیه اسکرین‌شات از نتایج گواهی‌های امروز برای: ${user.name}...`, 'info');
+
+        try {
+            await this.ensureBrowserAndSession(user, options);
+            this.log('در حال هدایت به بخش گزارش و آمار گواهی‌های امروز (Rep_zir_KO.aspx)...', 'info');
+
+            // 1. Ensure on reports page
+            if (!this.page.url().includes('reports.aspx') && !this.page.url().includes('Rep_zir_KO.aspx')) {
+                const topReportsMenu = this.page.locator('a[href*="reports.aspx"], a:has-text("مشاهده آمار")').first();
+                if (await topReportsMenu.isVisible().catch(() => false)) {
+                    await topReportsMenu.click().catch(() => {});
+                } else {
+                    await this.page.goto(REPORTS_HUB_URL, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+                }
+                await this.page.waitForTimeout(1000);
             }
-            if (this.browser) {
-                await this.browser.close().catch(() => {});
-                this.browser = null;
+
+            // 2. Open Rep_zir_KO.aspx
+            await this.page.goto(REPORTS_ISSUED_KO_URL, {
+                referer: REPORTS_HUB_URL,
+                waitUntil: 'domcontentloaded',
+                timeout: 30000,
+            }).catch(async () => {
+                await this.page.evaluate(() => {
+                    window.location.href = 'Reports/Rep_zir_KO.aspx';
+                }).catch(() => {});
+            });
+
+            await this.page.waitForURL((u) => u.href.includes('Rep_zir_KO.aspx') || u.href.includes('notallow.aspx'), { timeout: 20000 }).catch(() => {});
+            await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+            await this.page.waitForTimeout(1200);
+
+            // 3. Click "مشاهده آمار" (Button2)
+            const viewStatsBtn = this.page.locator(`
+                input#Button2[value*="مشاهده آمار"],
+                input[value*="مشاهده آمار"],
+                button:has-text("مشاهده آمار"),
+                input#Button2,
+                input[name*="Button2"]
+            `).first();
+
+            if (await viewStatsBtn.isVisible({ timeout: 15000 }).catch(() => false)) {
+                await Promise.all([
+                    this.page.waitForLoadState('domcontentloaded', { timeout: 25000 }).catch(() => {}),
+                    viewStatsBtn.click(),
+                ]).catch(async () => {
+                    await this.page.evaluate(() => {
+                        const btn = document.querySelector('input#Button2') || document.querySelector('input[value*="مشاهده آمار"]');
+                        if (btn) btn.click();
+                    }).catch(() => {});
+                });
             }
+
+            await this.page.waitForTimeout(2500);
+
+            // 4. Capture screenshot of table or page
+            const gridView = this.page.locator('table#GridView2, table[id*="GridView2"], table.GridView').first();
+            let screenshotBuffer;
+            let recordCount = 0;
+
+            if (await gridView.isVisible({ timeout: 12000 }).catch(() => false)) {
+                recordCount = await this.page.evaluate(() => {
+                    const table = document.querySelector('table#GridView2') || document.querySelector('table[id*="GridView2"]');
+                    return table ? Math.max(0, table.querySelectorAll('tr').length - 1) : 0;
+                }).catch(() => 0);
+
+                await gridView.scrollIntoViewIfNeeded().catch(() => {});
+                await this.page.waitForTimeout(500);
+                screenshotBuffer = await gridView.screenshot().catch(async () => {
+                    return await this.page.screenshot({ fullPage: false });
+                });
+            } else {
+                screenshotBuffer = await this.page.screenshot({ fullPage: false });
+            }
+
+            if (!fs.existsSync(RESULTS_DIR)) {
+                fs.mkdirSync(RESULTS_DIR, { recursive: true });
+            }
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `screenshot_permits_${user.username}_${timestamp}.png`;
+            const filePath = path.join(RESULTS_DIR, filename);
+            fs.writeFileSync(filePath, screenshotBuffer);
+
+            const imageBase64 = `data:image/png;base64,${screenshotBuffer.toString('base64')}`;
+            this.log(`📸 اسکرین‌شات از نتایج گواهی‌های امروز با موفقیت ثبت شد (${recordCount} رکورد).`, 'success');
+            this.setStatus('idle');
+
+            return {
+                success: true,
+                filename,
+                recordCount,
+                imageBase64,
+            };
+        } catch (err) {
+            this.log(`خطا در دریافت اسکرین‌شات نتایج: ${err.message}`, 'error');
+            this.setStatus('failed', { message: err.message });
+            throw err;
+        } finally {
             this.isRunning = false;
         }
     }

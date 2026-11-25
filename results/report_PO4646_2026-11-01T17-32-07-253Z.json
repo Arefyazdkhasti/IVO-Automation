@@ -1,0 +1,13 @@
+{
+  "user": "رجبعلی بابایی",
+  "username": "PO4646",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-01T17:32:07.253Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [],
+  "stats": {
+    "totalDischarged": 0,
+    "totalNoArrival": 0,
+    "totalChecked": 0
+  }
+}

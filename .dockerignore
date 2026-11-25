@@ -11,3 +11,5 @@ screenshots
 test-results
 playwright-report
 blob-report
+dist-electron
+build

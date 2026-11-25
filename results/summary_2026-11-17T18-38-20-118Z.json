@@ -1,0 +1,37 @@
+[
+  {
+    "user": "علی قندهاری",
+    "username": "PO5992",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-17T18:38:20.108Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [
+      {
+        "trackingCode": "KV3ZSTQ94",
+        "creationDate": "1405/08/25",
+        "dischargeDateSet": "1405/08/26",
+        "reportType": "خروجی وارداتی (Import Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      },
+      {
+        "trackingCode": "KV3ZK6884",
+        "creationDate": "1405/08/20",
+        "dischargeDateSet": "1405/08/21",
+        "reportType": "خروجی وارداتی (Import Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      },
+      {
+        "trackingCode": "KD7N3W493",
+        "creationDate": "14:18 1405/8/24",
+        "dischargeDateSet": "1405/08/25",
+        "reportType": "خروجی داخلی (Domestic Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      }
+    ],
+    "stats": {
+      "totalDischarged": 3,
+      "totalNoArrival": 0,
+      "totalChecked": 3
+    }
+  }
+]

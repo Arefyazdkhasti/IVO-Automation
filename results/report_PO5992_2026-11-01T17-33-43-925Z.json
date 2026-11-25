@@ -1,0 +1,13 @@
+{
+  "user": "علی قندهاری",
+  "username": "PO5992",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-01T17:33:43.925Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [],
+  "stats": {
+    "totalDischarged": 0,
+    "totalNoArrival": 0,
+    "totalChecked": 0
+  }
+}

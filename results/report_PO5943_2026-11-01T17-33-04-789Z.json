@@ -1,0 +1,21 @@
+{
+  "user": "عبدالحسین حاجی صادقیان",
+  "username": "PO5943",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-01T17:33:04.789Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [
+    {
+      "trackingCode": "KV3YNQN91",
+      "creationDate": "1405/07/29",
+      "dischargeDateSet": "1405/07/30",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    }
+  ],
+  "stats": {
+    "totalDischarged": 1,
+    "totalNoArrival": 0,
+    "totalChecked": 1
+  }
+}

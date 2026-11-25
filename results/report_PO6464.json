@@ -1,0 +1,21 @@
+{
+  "user": "محسن اسماعیلی",
+  "username": "PO6464",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-18T20:11:23.602Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [
+    {
+      "trackingCode": "KV3ZEYP00",
+      "creationDate": "1405/08/18",
+      "dischargeDateSet": "1405/08/19",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    }
+  ],
+  "stats": {
+    "totalDischarged": 1,
+    "totalNoArrival": 0,
+    "totalChecked": 1
+  }
+}

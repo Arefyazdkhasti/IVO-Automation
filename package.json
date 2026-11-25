@@ -2,12 +2,88 @@
   "name": "ivo-automation",
   "version": "1.0.0",
   "description": "سامانه اتوماسیون جامع دامپزشکی (IVO Automation)",
-  "main": "server.js",
+  "main": "electron/main.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "cli": "node src/cli/cli.js",
+    "electron": "electron .",
+    "electron:dev": "NODE_ENV=development electron .",
+    "electron:pack": "electron-builder --dir",
+    "electron:pack:mac": "electron-builder --mac --dir",
+    "electron:pack:win": "electron-builder --win --x64 --dir",
+    "electron:dist": "electron-builder",
+    "electron:dist:mac": "electron-builder --mac",
+    "electron:dist:win": "electron-builder --win --x64",
+    "electron:dist:linux": "electron-builder --linux AppImage deb",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "build": {
+    "appId": "ir.ivo.automation",
+    "productName": "IVO Automation",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "**/*",
+      "!dist-electron/**",
+      "!Dockerfile",
+      "!docker-compose.yml",
+      "!.dockerignore",
+      "!start-debug.bat",
+      "!start.bat",
+      "!start.command",
+      "!package-for-share.*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/playwright-core/**",
+      "eng.traineddata"
+    ],
+    "mac": {
+      "identity": null,
+      "icon": "build/icon.png",
+      "category": "public.app-category.business",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "اتوماسیون دامپزشکی"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [],
   "author": "",
@@ -20,8 +96,12 @@
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "playwright": "^1.63.0",
-    "pnpm": "^12.11.2",
-    "sharp": "^0.35.5",
     "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3",
+    "pnpm": "^12.11.2",
+    "sharp": "^0.35.5"
   }
 }

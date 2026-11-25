@@ -1,0 +1,70 @@
+{
+  "user": "مجتبی اسماعیلی",
+  "username": "po6430",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-01T17:46:50.084Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [
+    {
+      "trackingCode": "KV3YYEO19",
+      "creationDate": "1405/08/06",
+      "dischargeDateSet": "1405/08/07",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    },
+    {
+      "trackingCode": "KV3YWTN86",
+      "creationDate": "1405/08/06",
+      "dischargeDateSet": "1405/08/07",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    },
+    {
+      "trackingCode": "KV3YWOA93",
+      "creationDate": "1405/08/06",
+      "dischargeDateSet": "1405/08/07",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    },
+    {
+      "trackingCode": "KV3YP1J71",
+      "creationDate": "1405/07/30",
+      "dischargeDateSet": "1405/08/01",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    },
+    {
+      "trackingCode": "KV3YOX591",
+      "creationDate": "1405/07/30",
+      "dischargeDateSet": "1405/08/01",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    },
+    {
+      "trackingCode": "KD7KXP340",
+      "creationDate": "16:18 1405/8/3",
+      "dischargeDateSet": "1405/08/04",
+      "reportType": "خروجی داخلی (Domestic Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    },
+    {
+      "trackingCode": "KD7KMP600",
+      "creationDate": "17:29 1405/7/29",
+      "dischargeDateSet": "1405/07/30",
+      "reportType": "خروجی داخلی (Domestic Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    },
+    {
+      "trackingCode": "KD7KM1V64",
+      "creationDate": "14:21 1405/7/29",
+      "dischargeDateSet": "1405/07/30",
+      "reportType": "خروجی داخلی (Domestic Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    }
+  ],
+  "stats": {
+    "totalDischarged": 8,
+    "totalNoArrival": 0,
+    "totalChecked": 8
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "user": "مانده علی براتی",
+  "username": "PO5946",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-01T17:40:44.354Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [
+    {
+      "trackingCode": "KV3Z2OA22",
+      "creationDate": "1405/08/10",
+      "dischargeDateSet": "1405/08/11",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    }
+  ],
+  "stats": {
+    "totalDischarged": 1,
+    "totalNoArrival": 0,
+    "totalChecked": 1
+  }
+}

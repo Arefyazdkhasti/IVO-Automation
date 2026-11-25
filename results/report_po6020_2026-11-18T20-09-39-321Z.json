@@ -1,0 +1,28 @@
+{
+  "user": "ابولفضل میرزاده",
+  "username": "po6020",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-18T20:09:39.321Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [
+    {
+      "trackingCode": "KV3ZSDU86",
+      "creationDate": "1405/08/25",
+      "dischargeDateSet": "1405/08/26",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    },
+    {
+      "trackingCode": "KV3ZER660",
+      "creationDate": "1405/08/17",
+      "dischargeDateSet": "1405/08/18",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    }
+  ],
+  "stats": {
+    "totalDischarged": 2,
+    "totalNoArrival": 0,
+    "totalChecked": 2
+  }
+}

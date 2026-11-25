@@ -1,0 +1,13 @@
+{
+  "user": "مصطفی باقری",
+  "username": "PO5986",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-18T20:12:57.025Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [],
+  "stats": {
+    "totalDischarged": 0,
+    "totalNoArrival": 0,
+    "totalChecked": 0
+  }
+}

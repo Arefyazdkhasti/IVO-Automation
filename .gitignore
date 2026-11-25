@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 **/node_modules/
+.ivo-runtime/
 
 # Environment Variables
 .env
@@ -20,8 +21,12 @@ results/*.png
 results/*.xlsx
 screenshots/
 captcha_*.png
-temp_*.png
 *.zip
+
+# Electron Builds
+dist-electron/
+build/
+
 
 # Playwright
 test-results/

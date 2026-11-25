@@ -10,6 +10,7 @@ const dischargeService = require('./src/features/discharge/discharge.service');
 
 const app = express();
 const PORT = process.env.PORT || DEFAULTS.PORT;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Middleware
 app.use(express.json());
@@ -47,14 +48,49 @@ app.use((req, res, next) => {
     next();
 });
 
-// Server Listen
-app.listen(PORT, () => {
-    console.log(`
+let serverInstance = null;
+
+function startServer(port = PORT, host = HOST) {
+    return new Promise((resolve, reject) => {
+        if (serverInstance && serverInstance.listening) {
+            return resolve(serverInstance);
+        }
+        serverInstance = app.listen(port, host, () => {
+            const localUrl =
+                host === '0.0.0.0' || host === '::'
+                    ? `http://localhost:${port}`
+                    : `http://${host}:${port}`;
+            console.log(`
 ======================================================`);
-    console.log(`🚀 پنل اتوماسیون جامع دامپزشکی (IVO Automation) فعال شد!`);
-    console.log(`🌐 آدرس دسترسی در مرورگر: http://localhost:${PORT}`);
-    console.log(`======================================================
+            console.log(`🚀 پنل اتوماسیون جامع دامپزشکی (IVO Automation) فعال شد!`);
+            console.log(`🌐 آدرس دسترسی: ${localUrl}`);
+            console.log(`======================================================
 `);
-});
+            resolve(serverInstance);
+        });
+        serverInstance.on('error', reject);
+    });
+}
+
+function stopServer() {
+    return new Promise((resolve) => {
+        if (!serverInstance) return resolve();
+        serverInstance.close(() => {
+            serverInstance = null;
+            resolve();
+        });
+    });
+}
+
+// Auto-start if run directly via CLI (e.g. node server.js or npm start)
+if (require.main === module || process.env.AUTO_START_SERVER === 'true') {
+    startServer().catch((err) => {
+        console.error('❌ خطا در راه‌اندازی سرور:', err);
+    });
+}
 
 module.exports = app;
+module.exports.startServer = startServer;
+module.exports.stopServer = stopServer;
+module.exports.getServer = () => serverInstance;
+

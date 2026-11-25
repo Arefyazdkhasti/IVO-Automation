@@ -70,6 +70,7 @@ class PermitController {
                 quantity,
                 breed,
                 hatchingPermitCode,
+                epidemiologicCode,
                 skipClosure,
                 cooldownSeconds,
             } = req.body;
@@ -87,6 +88,31 @@ class PermitController {
             const userPayload = { ...user };
             if (breed) userPayload.breed = breed;
             if (hatchingPermitCode) userPayload.hatchingPermitCode = hatchingPermitCode;
+            if (epidemiologicCode) userPayload.epidemiologicCode = epidemiologicCode;
+
+            // Automatically persist updated user metadata if changed
+            const updateUserData = {};
+            if (epidemiologicCode && epidemiologicCode.trim() !== (user.epidemiologicCode || '').trim()) {
+                updateUserData.epidemiologicCode = epidemiologicCode.trim();
+            }
+            if (hatchingPermitCode && hatchingPermitCode.trim() !== (user.hatchingPermitCode || '').trim()) {
+                updateUserData.hatchingPermitCode = hatchingPermitCode.trim();
+            }
+            if (breed && breed.trim() !== (user.breed || '').trim()) {
+                updateUserData.breed = breed.trim();
+            }
+            if (Object.keys(updateUserData).length > 0) {
+                UsersRepository.updateUser(user.username, updateUserData).catch((err) => {
+                    console.error('Failed to auto-update user metadata:', err);
+                });
+            }
+
+            // Automatically save new candidate codes to tracking_codes.json for future use
+            const candidateList = Array.isArray(candidateCodes) ? candidateCodes : [];
+            let currentAllCodes = PermitRepository.getTrackingCodes();
+            if (candidateList.length > 0) {
+                currentAllCodes = PermitRepository.addCandidateCodesIfNew(candidateList);
+            }
 
             if (permitService.isRunning) {
                 return res.status(400).json({ success: false, error: 'یک عملیات از قبل در حال اجرا است.' });
@@ -112,7 +138,7 @@ class PermitController {
             permitService
                 .startPermitFlow(userPayload, {
                     permits: permitsPayload,
-                    candidateCodes: Array.isArray(candidateCodes) ? candidateCodes : [],
+                    candidateCodes: candidateList,
                     customCodes,
                     headless: !!headless,
                     skipClosure: !!skipClosure,
@@ -123,7 +149,11 @@ class PermitController {
                 });
 
             const countText = permitsPayload.length > 1 ? `${permitsPayload.length} مجوز` : 'مجوز';
-            res.json({ success: true, message: `عملیات صدور ${countText} برای ${user.name} آغاز شد.` });
+            res.json({
+                success: true,
+                message: `عملیات صدور ${countText} برای ${user.name} آغاز شد.`,
+                trackingCodes: currentAllCodes,
+            });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
         }
@@ -248,6 +278,26 @@ class PermitController {
             res.send(buffer);
         } catch (err) {
             console.error('Error exporting permits to PDF:', err);
+            res.status(500).json({ success: false, error: err.message });
+        }
+    }
+
+    static async captureResultsScreenshot(req, res) {
+        try {
+            const { username, headless } = req.body;
+            if (!username) {
+                return res.status(400).json({ success: false, error: 'نام کاربری الزامی است.' });
+            }
+            const user = await UsersRepository.findByUsername(username);
+            if (!user) {
+                return res.status(404).json({ success: false, error: 'کاربر مورد نظر یافت نشد.' });
+            }
+
+            const result = await permitService.captureTodayResultsScreenshot(user, {
+                headless: headless !== undefined ? !!headless : true,
+            });
+            res.json(result);
+        } catch (err) {
             res.status(500).json({ success: false, error: err.message });
         }
     }

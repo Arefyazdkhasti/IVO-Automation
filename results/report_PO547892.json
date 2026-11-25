@@ -1,0 +1,28 @@
+{
+  "user": "نعمت الله روانبخش",
+  "username": "PO547892",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-18T20:14:42.837Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [
+    {
+      "trackingCode": "KV3ZDI690",
+      "creationDate": "1405/08/17",
+      "dischargeDateSet": "1405/08/18",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    },
+    {
+      "trackingCode": "KD7MW3440",
+      "creationDate": "16:29 1405/8/21",
+      "dischargeDateSet": "1405/08/22",
+      "reportType": "خروجی داخلی (Domestic Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    }
+  ],
+  "stats": {
+    "totalDischarged": 2,
+    "totalNoArrival": 0,
+    "totalChecked": 2
+  }
+}

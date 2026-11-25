@@ -1,0 +1,21 @@
+{
+  "user": "محسن اسماعیلی",
+  "username": "PO6464",
+  "checkedFromDate": "1405/06/01",
+  "executionTimestamp": "2026-10-19T18:39:06.095Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [
+    {
+      "trackingCode": "KD7I4E118",
+      "creationDate": "11:27 1405/7/12",
+      "dischargeDateSet": "1405/07/13",
+      "reportType": "خروجی داخلی (Domestic Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    }
+  ],
+  "stats": {
+    "totalDischarged": 1,
+    "totalNoArrival": 0,
+    "totalChecked": 1
+  }
+}

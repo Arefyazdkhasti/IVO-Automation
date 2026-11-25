@@ -1,0 +1,21 @@
+{
+  "user": "علی محمد جمیشیدیان",
+  "username": "PO5949",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-01T17:34:22.470Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [
+    {
+      "trackingCode": "KD7L6T857",
+      "creationDate": "9:44 1405/8/6",
+      "dischargeDateSet": "1405/08/07",
+      "reportType": "خروجی داخلی (Domestic Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    }
+  ],
+  "stats": {
+    "totalDischarged": 1,
+    "totalNoArrival": 0,
+    "totalChecked": 1
+  }
+}

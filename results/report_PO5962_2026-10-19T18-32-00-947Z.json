@@ -1,0 +1,13 @@
+{
+  "user": "اصغر براتی",
+  "username": "PO5962",
+  "checkedFromDate": "1405/06/01",
+  "executionTimestamp": "2026-10-19T18:32:00.947Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [],
+  "stats": {
+    "totalDischarged": 0,
+    "totalNoArrival": 0,
+    "totalChecked": 0
+  }
+}

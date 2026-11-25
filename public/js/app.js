@@ -638,7 +638,7 @@ function updateUserPreview(user) {
     breedSelect.value = 'راس';
   }
 
-  epidemInput.value = user.epidemiologicCode || 'ندارد';
+  epidemInput.value = user.epidemiologicCode || '';
   hatchInput.value = user.hatchingPermitCode || '';
 }
 
@@ -1264,6 +1264,9 @@ function setupListeners() {
   if (skipCooldownBtn) {
     skipCooldownBtn.addEventListener('click', async () => {
       try {
+        const cooldownBanner = document.getElementById('cooldownBanner');
+        if (cooldownBanner) cooldownBanner.style.display = 'none';
+
         const res = await fetch('/api/permits/skip-cooldown', { method: 'POST' });
         const data = await res.json();
         if (data.success) {
@@ -1274,6 +1277,18 @@ function setupListeners() {
       } catch (err) {
         console.error(err);
       }
+    });
+  }
+
+  // Cooldown Duration Selector
+  const cooldownSelect = document.getElementById('cooldownSelect');
+  if (cooldownSelect) {
+    const savedCooldown = localStorage.getItem('ivo_cooldown_seconds');
+    if (savedCooldown) {
+      cooldownSelect.value = savedCooldown;
+    }
+    cooldownSelect.addEventListener('change', () => {
+      localStorage.setItem('ivo_cooldown_seconds', cooldownSelect.value);
     });
   }
 
@@ -1289,6 +1304,112 @@ function setupListeners() {
   if (cancelClosureBtn) {
     cancelClosureBtn.addEventListener('click', () => {
       respondClosureConfirmation(false);
+    });
+  }
+
+  // User Update Confirmation Modal Handlers (Item 2)
+  let pendingUserUpdateAction = null;
+  const userUpdateConfirmModal = document.getElementById('userUpdateConfirmModal');
+  const confirmUserUpdateBtn = document.getElementById('confirmUserUpdateBtn');
+  const cancelUserUpdateBtn = document.getElementById('cancelUserUpdateBtn');
+
+  if (confirmUserUpdateBtn) {
+    confirmUserUpdateBtn.addEventListener('click', async () => {
+      if (userUpdateConfirmModal) userUpdateConfirmModal.classList.remove('active');
+      if (pendingUserUpdateAction) {
+        const action = pendingUserUpdateAction;
+        pendingUserUpdateAction = null;
+        await action();
+      }
+    });
+  }
+
+  if (cancelUserUpdateBtn) {
+    cancelUserUpdateBtn.addEventListener('click', () => {
+      if (userUpdateConfirmModal) userUpdateConfirmModal.classList.remove('active');
+      pendingUserUpdateAction = null;
+      if (startBtn) startBtn.disabled = false;
+    });
+  }
+
+  // Results Screenshot Modal Handlers (Item 5)
+  const captureResultsScreenshotBtn = document.getElementById('captureResultsScreenshotBtn');
+  const screenshotPreviewModal = document.getElementById('screenshotPreviewModal');
+  const screenshotPreviewImg = document.getElementById('screenshotPreviewImg');
+  const screenshotRecordBadge = document.getElementById('screenshotRecordBadge');
+  const downloadScreenshotImgLink = document.getElementById('downloadScreenshotImgLink');
+  const copyScreenshotImgBtn = document.getElementById('copyScreenshotImgBtn');
+  const closeScreenshotModalBtn = document.getElementById('closeScreenshotModalBtn');
+
+  async function handleCaptureResultsScreenshot() {
+    const selectedUsername = userSelect ? userSelect.value : '';
+    if (!selectedUsername) {
+      alert('لطفاً ابتدا مرغدار مورد نظر را از بالای صفحه انتخاب فرمایید.');
+      return;
+    }
+
+    try {
+      showToast('در حال هدایت به بخش آمار و تهیه اسکرین‌شات از جدول نتایج امروز...', 'info');
+      const res = await fetch('/api/permits/capture-results-screenshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: selectedUsername,
+          headless: !showBrowserCheck.checked,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert('خطا در دریافت اسکرین‌شات: ' + (data.error || 'خطای نامشخص'));
+        return;
+      }
+
+      if (screenshotPreviewImg) screenshotPreviewImg.src = data.imageBase64;
+      if (downloadScreenshotImgLink) {
+        downloadScreenshotImgLink.href = data.imageBase64;
+        downloadScreenshotImgLink.download = data.filename || `ivo_results_${selectedUsername}.png`;
+      }
+      if (screenshotRecordBadge) {
+        screenshotRecordBadge.textContent = `${data.recordCount || 0} رکورد`;
+      }
+      if (screenshotPreviewModal) screenshotPreviewModal.classList.add('active');
+      showToast(`اسکرین‌شات از ${data.recordCount || 0} رکورد گواهی امروز آماده شد! 📸`, 'success');
+    } catch (err) {
+      console.error(err);
+      alert('خطا در ارتباط با سرور: ' + err.message);
+    }
+  }
+
+  if (captureResultsScreenshotBtn) {
+    captureResultsScreenshotBtn.addEventListener('click', handleCaptureResultsScreenshot);
+  }
+
+  if (copyScreenshotImgBtn) {
+    copyScreenshotImgBtn.addEventListener('click', async () => {
+      const src = screenshotPreviewImg?.src;
+      if (!src) return;
+      try {
+        const response = await fetch(src);
+        const blob = await response.blob();
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type]: blob }),
+        ]);
+        showToast('تصویر نتایج در کلیپ‌بورد کپی شد! ✓', 'success');
+      } catch (err) {
+        console.warn('Clipboard image write failed, trying fallback:', err);
+        try {
+          await navigator.clipboard.writeText(src);
+          showToast('لینک تصویر کپی شد.', 'info');
+        } catch (_) {
+          showToast('امکان کپی مستقیم تصویر فراهم نشد. لطفاً از دکمه دانلود استفاده کنید.', 'warning');
+        }
+      }
+    });
+  }
+
+  if (closeScreenshotModalBtn) {
+    closeScreenshotModalBtn.addEventListener('click', () => {
+      if (screenshotPreviewModal) screenshotPreviewModal.classList.remove('active');
     });
   }
 
@@ -1353,6 +1474,46 @@ function setupListeners() {
     });
   }
 
+  // Core execution helper for permit flow
+  async function executeStartPermitFlow(selectedUsername, permitsToSend, candidateCodes, breed, hatchingPermitCode, epidemiologicCode, cooldownSeconds) {
+    const headless = !showBrowserCheck.checked;
+    try {
+      startBtn.disabled = true;
+      const res = await fetch('/api/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: selectedUsername,
+          headless: headless,
+          permits: permitsToSend,
+          permitScope: permitScopeSelect ? permitScopeSelect.value : 'inside',
+          candidateCodes: candidateCodes,
+          breed: breed,
+          hatchingPermitCode: hatchingPermitCode,
+          epidemiologicCode: epidemiologicCode,
+          cooldownSeconds: cooldownSeconds,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert('خطا در شروع: ' + data.error);
+        startBtn.disabled = false;
+      } else {
+        // Automatically sync tracking codes if new candidate codes were added (Item 1)
+        if (Array.isArray(data.trackingCodes)) {
+          trackingCodes = data.trackingCodes;
+          renderCodesList();
+          renderAdminCodesTable();
+        } else {
+          loadTrackingCodes();
+        }
+      }
+    } catch (e) {
+      alert('خطا در ارتباط با سرور: ' + e.message);
+      startBtn.disabled = false;
+    }
+  }
+
   // Permit Start Button (Single or Multi-Permit Queue)
   startBtn.addEventListener('click', async () => {
     const selectedUsername = userSelect.value;
@@ -1385,6 +1546,7 @@ function setupListeners() {
 
     const breed = breedSelect.value;
     const hatchingPermitCode = hatchInput.value.trim();
+    const epidemiologicCode = epidemInput ? epidemInput.value.trim() : '';
 
     // Parse Candidate Tracking Codes (Priority Codes)
     const candidateCodesRaw = candidateCodesInput ? candidateCodesInput.value.trim() : '';
@@ -1395,32 +1557,60 @@ function setupListeners() {
     codeStatusMap = {};
     renderCodesList();
 
-    const headless = !showBrowserCheck.checked;
+    const cooldownSec = cooldownSelect ? Number(cooldownSelect.value) || 120 : 120;
 
-    try {
-      startBtn.disabled = true;
-      const res = await fetch('/api/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: selectedUsername,
-          headless: headless,
-          permits: permitsToSend,
-          permitScope: permitScopeSelect ? permitScopeSelect.value : 'inside',
-          candidateCodes: candidateCodes,
-          breed: breed,
-          hatchingPermitCode: hatchingPermitCode,
-        }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        alert('خطا در شروع: ' + data.error);
-        startBtn.disabled = false;
+    // Check if user metadata was updated (Item 2)
+    const selectedUser = usersList.find((u) => u.username === selectedUsername);
+    const epidemChanged = epidemiologicCode && epidemiologicCode !== (selectedUser?.epidemiologicCode || '').trim();
+    const hatchChanged = hatchingPermitCode && hatchingPermitCode !== (selectedUser?.hatchingPermitCode || '').trim();
+
+    if (selectedUser && (epidemChanged || hatchChanged)) {
+      const updateConfirmUserName = document.getElementById('updateConfirmUserName');
+      const updateConfirmDetailsList = document.getElementById('updateConfirmDetailsList');
+      if (updateConfirmUserName) updateConfirmUserName.textContent = selectedUser.name;
+      if (updateConfirmDetailsList) {
+        updateConfirmDetailsList.innerHTML = '';
+        if (epidemChanged) {
+          updateConfirmDetailsList.innerHTML += `
+            <div class="flex items-center justify-between py-1.5 border-b border-blue-500/20">
+              <span class="text-slate-300">کد اپیدمیولوژیک مرغداری:</span>
+              <span class="text-emerald-400 font-bold">${epidemiologicCode} ${selectedUser.epidemiologicCode ? `<span class="text-slate-500 line-through mr-1 font-normal font-sans">(${selectedUser.epidemiologicCode})</span>` : '<span class="text-amber-400 text-[10px] mr-1 font-sans">(ثبت جدید)</span>'}</span>
+            </div>`;
+        }
+        if (hatchChanged) {
+          updateConfirmDetailsList.innerHTML += `
+            <div class="flex items-center justify-between py-1.5 border-b border-blue-500/20">
+              <span class="text-slate-300">کد مجوز جوجه‌ریزی:</span>
+              <span class="text-slate-100 font-bold">${hatchingPermitCode} ${selectedUser.hatchingPermitCode ? `<span class="text-slate-500 line-through mr-1 font-normal font-sans">(${selectedUser.hatchingPermitCode})</span>` : '<span class="text-amber-400 text-[10px] mr-1 font-sans">(ثبت جدید)</span>'}</span>
+            </div>`;
+        }
       }
-    } catch (e) {
-      alert('خطا در ارتباط با سرور: ' + e.message);
-      startBtn.disabled = false;
+
+      if (userUpdateConfirmModal) {
+        userUpdateConfirmModal.classList.add('active');
+        pendingUserUpdateAction = async () => {
+          try {
+            const updatePayload = {};
+            if (epidemChanged) updatePayload.epidemiologicCode = epidemiologicCode;
+            if (hatchChanged) updatePayload.hatchingPermitCode = hatchingPermitCode;
+            await fetch(`/api/users/${encodeURIComponent(selectedUser.username)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatePayload),
+            });
+            if (epidemChanged) selectedUser.epidemiologicCode = epidemiologicCode;
+            if (hatchChanged) selectedUser.hatchingPermitCode = hatchingPermitCode;
+            showToast('اطلاعات مرغدار با موفقیت به‌روزرسانی شد.', 'success');
+          } catch (err) {
+            console.error('Error updating user metadata:', err);
+          }
+          await executeStartPermitFlow(selectedUsername, permitsToSend, candidateCodes, breed, hatchingPermitCode, epidemiologicCode, cooldownSec);
+        };
+        return;
+      }
     }
+
+    await executeStartPermitFlow(selectedUsername, permitsToSend, candidateCodes, breed, hatchingPermitCode, epidemiologicCode, cooldownSec);
   });
 
   // Permit Stop Button
@@ -2460,6 +2650,12 @@ function handleCooldownTick(data) {
   const m = String(Math.floor(rem / 60)).padStart(2, '0');
   const s = String(rem % 60).padStart(2, '0');
   timerBadge.textContent = `${m}:${s}`;
+
+  const totalMin = Math.round((data.totalSeconds || 120) / 60);
+  const titleEl = banner.querySelector('.text-amber-400');
+  if (titleEl) {
+    titleEl.textContent = `تایمر ${totalMin} دقیقه‌ای بین مجوزها (رعایت قوانین سامانه)`;
+  }
 
   const nextItemName = data.nextItem ? (data.nextItem.slaughterhouseName || 'کشتارگاه بعدی') : '';
   const nextItemQty = data.nextItem ? ` (${Number(data.nextItem.quantity).toLocaleString('fa-IR')} قطعه)` : '';

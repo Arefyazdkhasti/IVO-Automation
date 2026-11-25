@@ -1,0 +1,13 @@
+{
+  "user": "ابولفضل میرزاده",
+  "username": "po6020",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-01T17:40:02.495Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [],
+  "stats": {
+    "totalDischarged": 0,
+    "totalNoArrival": 0,
+    "totalChecked": 31
+  }
+}

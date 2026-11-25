@@ -69,6 +69,7 @@ router.get('/permits/session', PermitController.getSessionPermits);
 router.delete('/permits/session', requireAuth, PermitController.clearSessionPermits);
 router.post('/permits/export/excel', PermitController.exportPermitsExcel);
 router.post('/permits/export/pdf', PermitController.exportPermitsPdf);
+router.post('/permits/capture-results-screenshot', requireAuth, PermitController.captureResultsScreenshot);
 
 // ==========================================
 // Discharge Verification Operations & Exports

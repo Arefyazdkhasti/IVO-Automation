@@ -56,6 +56,43 @@
 
 - نصب بودن **Node.js** نسخه ۱۸ یا بالاتر ([دانلود از وب‌سایت رسمی Node.js](https://nodejs.org/)).
 
+### اجرای سریع (بدون دیپلوی سرور)
+
+| سیستم | فایل اجرا | پیش‌نیاز |
+|--------|-----------|----------|
+| **Windows** | `start.bat` | **هیچ** — Node/npm لازم نیست؛ اولین بار خودش Node portable را در `.ivo-runtime` می‌گیرد، بعد `npm install` و Playwright |
+| **macOS** | `start.command` | [Node.js](https://nodejs.org) 18+ |
+
+روی **ویندوز خام**: فقط Extract و دوبار کلیک **`start.bat`**. اگر `.env` نباشد از `.env.example` کپی می‌شود (Supabase را خودت پر کن). اولین اجرا **اینترنت** لازم دارد (Node + npm + Chromium). با **بستن پنجره CMD** سرور قطع می‌شود.
+
+> **مهم:** `start.command` فقط روی مک کار می‌کند؛ روی ویندوز **`start.bat`**.
+
+برای **zip آفلاین** (بدون دانلود Node روی PC گیرنده): `package-for-share.bat --with-node` یا `./package-for-share.sh --with-node`
+
+### فرستادن پروژه با ZIP (اتوماتیک)
+
+| سیستم | دستور |
+|--------|--------|
+| **macOS / Linux** | `./package-for-share.sh` |
+| **Windows** | دوبار کلیک `package-for-share.bat` |
+
+خروجی: فایلی مثل `ivo-automation-share-20261018-143000.zip` در **همان پوشهٔ پروژه**.
+
+- **`node_modules`، `.git`، `.env`** (پیش‌فرض) و خروجی‌های موقت داخل zip **نمی‌روند**.
+- **`users.json`** پیش‌فرض **می‌رود** (رمز ورود دارد — فقط برای گیرندهٔ مورد اعتماد).
+- **رمز zip:** اسکریپت macOS با `zip -e` می‌پرسد؛ ویندوز اگر [7-Zip](https://www.7-zip.org) نصب باشد رمز می‌گیرد، وگرنه zip بدون رمز (می‌توانی بعداً با 7-Zip رمز بگذاری).
+
+گزینه‌ها (هر دو اسکریپت):
+
+```text
+--with-env       قرار دادن .env داخل zip
+--with-node      Node.js ویندوز داخل zip (PC خام بدون اینترنت برای Node)
+--no-users       بدون users.json
+--no-password    zip بدون رمز (macOS/Linux)
+```
+
+**گیرنده ویندوز:** Extract → `start.bat`. **مک:** `start.command` + Node نصب‌شده.
+
 ---
 
 

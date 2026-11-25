@@ -1,3 +1,5 @@
+const { chromium } = require('playwright');
+
 const DEFAULT_NAV_TIMEOUT_MS = 90000;
 
 const CHROMIUM_LAUNCH_ARGS = [
@@ -6,12 +8,51 @@ const CHROMIUM_LAUNCH_ARGS = [
     '--disable-gpu',
 ];
 
-function getChromiumLaunchOptions({ headless, slowMo = 100 }) {
-    return {
+function getChromiumLaunchOptions({ headless, slowMo = 100 } = {}) {
+    const opts = {
         headless,
         slowMo,
         args: CHROMIUM_LAUNCH_ARGS,
     };
+    if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+        opts.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+    }
+    if (process.env.PLAYWRIGHT_CHANNEL) {
+        opts.channel = process.env.PLAYWRIGHT_CHANNEL;
+    }
+    return opts;
+}
+
+/**
+ * Launches Chromium with automatic fallback to system Google Chrome or Microsoft Edge
+ * if Playwright browser binaries are not installed on the host machine.
+ */
+async function launchPlaywrightChromium(launchOptions = {}) {
+    const opts = getChromiumLaunchOptions(launchOptions);
+    try {
+        return await chromium.launch(opts);
+    } catch (primaryErr) {
+        const msg = String(primaryErr?.message || '');
+        const isMissingBrowser =
+            msg.includes("Executable doesn't exist") ||
+            msg.includes('playwright was just installed') ||
+            msg.includes('Failed to launch');
+
+        if (isMissingBrowser && !opts.channel && !opts.executablePath) {
+            console.warn('[Playwright] مرورگر پیش‌فرض یافت نشد. تلاش برای اجرای گوگل کروم سیستم...');
+            try {
+                return await chromium.launch({ ...opts, channel: 'chrome' });
+            } catch (_) {
+                console.warn('[Playwright] گوگل کروم سیستم یافت نشد. تلاش برای اجرای مایکروسافت اج...');
+            }
+            try {
+                return await chromium.launch({ ...opts, channel: 'msedge' });
+            } catch (_) {
+                console.warn('[Playwright] مایکروسافت اج سیستم یافت نشد.');
+            }
+        }
+        throw primaryErr;
+    }
 }
 
 async function createPortalContext(browser) {
@@ -65,6 +106,7 @@ async function gotoPortalPage(page, url, log) {
 module.exports = {
     DEFAULT_NAV_TIMEOUT_MS,
     getChromiumLaunchOptions,
+    launchPlaywrightChromium,
     createPortalContext,
     gotoPortalPage,
 };

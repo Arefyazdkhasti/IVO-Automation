@@ -1,6 +1,6 @@
 {
     "app": "ivo-automation",
-    "port": 3002,
+    "port": 3000,
     "build": {
         "location": "iran"
     },

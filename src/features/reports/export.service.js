@@ -1,5 +1,5 @@
 const ExcelJS = require('exceljs');
-const { chromium } = require('playwright');
+const { launchPlaywrightChromium } = require('../../core/playwright-browser');
 
 class ExportService {
     // ==========================================
@@ -584,7 +584,7 @@ class ExportService {
      * @returns {Promise<Buffer>}
      */
     static async renderHtmlToPdf(html, orientation = 'portrait') {
-        const browser = await chromium.launch({ headless: true });
+        const browser = await launchPlaywrightChromium({ headless: true });
         try {
             const context = await browser.newContext();
             const page = await context.newPage();

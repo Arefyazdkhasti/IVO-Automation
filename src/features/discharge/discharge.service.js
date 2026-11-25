@@ -2,6 +2,7 @@ const { chromium } = require('playwright');
 const { resolvePlaywrightHeadless } = require('../../core/playwright-env');
 const {
     getChromiumLaunchOptions,
+    launchPlaywrightChromium,
     createPortalContext,
     gotoPortalPage,
 } = require('../../core/playwright-browser');
@@ -121,7 +122,7 @@ class DischargeService extends EventEmitter {
                     'warning',
                 );
             }
-            this.browser = await chromium.launch(getChromiumLaunchOptions({ headless, slowMo: 60 }));
+            this.browser = await launchPlaywrightChromium({ headless, slowMo: 60 });
 
             for (let uIdx = 0; uIdx < targetUsers.length; uIdx++) {
                 if (!this.isRunning) break;

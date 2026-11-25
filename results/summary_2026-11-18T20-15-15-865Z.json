@@ -1,0 +1,280 @@
+[
+  {
+    "user": "اصغر براتی",
+    "username": "PO5962",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:04:04.642Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [],
+    "stats": {
+      "totalDischarged": 0,
+      "totalNoArrival": 0,
+      "totalChecked": 17
+    }
+  },
+  {
+    "user": "جعفر شفیعی",
+    "username": "PO42416",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:04:52.351Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [],
+    "stats": {
+      "totalDischarged": 0,
+      "totalNoArrival": 0,
+      "totalChecked": 0
+    }
+  },
+  {
+    "user": "حاج علی عسگری",
+    "username": "PO557375",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:05:56.989Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [
+      {
+        "trackingCode": "KD7M1B691",
+        "creationDate": "11:15 1405/8/12",
+        "dischargeDateSet": "1405/08/13",
+        "reportType": "خروجی داخلی (Domestic Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      }
+    ],
+    "stats": {
+      "totalDischarged": 1,
+      "totalNoArrival": 0,
+      "totalChecked": 1
+    }
+  },
+  {
+    "user": "رجبعلی بابایی",
+    "username": "PO4646",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:06:27.646Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [],
+    "stats": {
+      "totalDischarged": 0,
+      "totalNoArrival": 0,
+      "totalChecked": 0
+    }
+  },
+  {
+    "user": "شمسی",
+    "username": "PO5937",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:06:47.743Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [],
+    "stats": {
+      "totalDischarged": 0,
+      "totalNoArrival": 0,
+      "totalChecked": 0
+    }
+  },
+  {
+    "user": "عبدالحسین حاجی صادقیان",
+    "username": "PO5943",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:07:08.552Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [],
+    "stats": {
+      "totalDischarged": 0,
+      "totalNoArrival": 0,
+      "totalChecked": 0
+    }
+  },
+  {
+    "user": "علی قندهاری",
+    "username": "PO5992",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:07:59.366Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [],
+    "stats": {
+      "totalDischarged": 0,
+      "totalNoArrival": 0,
+      "totalChecked": 0
+    }
+  },
+  {
+    "user": "علی محمد جمیشیدیان",
+    "username": "PO5949",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:08:38.483Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [
+      {
+        "trackingCode": "KV3Z4CA45",
+        "creationDate": "1405/08/11",
+        "dischargeDateSet": "1405/08/12",
+        "reportType": "خروجی وارداتی (Import Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      }
+    ],
+    "stats": {
+      "totalDischarged": 1,
+      "totalNoArrival": 0,
+      "totalChecked": 1
+    }
+  },
+  {
+    "user": "ابولفضل میرزاده",
+    "username": "po6020",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:09:39.321Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [
+      {
+        "trackingCode": "KV3ZSDU86",
+        "creationDate": "1405/08/25",
+        "dischargeDateSet": "1405/08/26",
+        "reportType": "خروجی وارداتی (Import Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      },
+      {
+        "trackingCode": "KV3ZER660",
+        "creationDate": "1405/08/17",
+        "dischargeDateSet": "1405/08/18",
+        "reportType": "خروجی وارداتی (Import Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      }
+    ],
+    "stats": {
+      "totalDischarged": 2,
+      "totalNoArrival": 0,
+      "totalChecked": 2
+    }
+  },
+  {
+    "user": "مانده علی براتی",
+    "username": "PO5946",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:10:23.754Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [
+      {
+        "trackingCode": "KD7LXGK20",
+        "creationDate": "9:25 1405/8/11",
+        "dischargeDateSet": "1405/08/12",
+        "reportType": "خروجی داخلی (Domestic Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      }
+    ],
+    "stats": {
+      "totalDischarged": 1,
+      "totalNoArrival": 0,
+      "totalChecked": 1
+    }
+  },
+  {
+    "user": "محسن اسماعیلی",
+    "username": "PO6464",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:11:23.602Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [
+      {
+        "trackingCode": "KV3ZEYP00",
+        "creationDate": "1405/08/18",
+        "dischargeDateSet": "1405/08/19",
+        "reportType": "خروجی وارداتی (Import Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      }
+    ],
+    "stats": {
+      "totalDischarged": 1,
+      "totalNoArrival": 0,
+      "totalChecked": 1
+    }
+  },
+  {
+    "user": "محمد کرباسی ایثارگران",
+    "username": "PO5865",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:12:05.070Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [],
+    "stats": {
+      "totalDischarged": 0,
+      "totalNoArrival": 0,
+      "totalChecked": 0
+    }
+  },
+  {
+    "user": "مصطفی باقری",
+    "username": "PO5986",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:12:57.025Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [],
+    "stats": {
+      "totalDischarged": 0,
+      "totalNoArrival": 0,
+      "totalChecked": 0
+    }
+  },
+  {
+    "user": "مهدی اسماعیلی",
+    "username": "Po6465",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:13:43.674Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [
+      {
+        "trackingCode": "KV3ZERU83",
+        "creationDate": "1405/08/17",
+        "dischargeDateSet": "1405/08/18",
+        "reportType": "خروجی وارداتی (Import Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      }
+    ],
+    "stats": {
+      "totalDischarged": 1,
+      "totalNoArrival": 0,
+      "totalChecked": 1
+    }
+  },
+  {
+    "user": "نعمت الله روانبخش",
+    "username": "PO547892",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:14:42.837Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [
+      {
+        "trackingCode": "KV3ZDI690",
+        "creationDate": "1405/08/17",
+        "dischargeDateSet": "1405/08/18",
+        "reportType": "خروجی وارداتی (Import Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      },
+      {
+        "trackingCode": "KD7MW3440",
+        "creationDate": "16:29 1405/8/21",
+        "dischargeDateSet": "1405/08/22",
+        "reportType": "خروجی داخلی (Domestic Exit)",
+        "status": "تایید تخلیه ثبت شد"
+      }
+    ],
+    "stats": {
+      "totalDischarged": 2,
+      "totalNoArrival": 0,
+      "totalChecked": 2
+    }
+  },
+  {
+    "user": "مجتبی اسماعیلی",
+    "username": "po6430",
+    "checkedFromDate": "1405/07/01",
+    "executionTimestamp": "2026-11-18T20:15:15.860Z",
+    "noArrivalRecords": [],
+    "dischargedRecords": [],
+    "stats": {
+      "totalDischarged": 0,
+      "totalNoArrival": 0,
+      "totalChecked": 0
+    }
+  }
+]

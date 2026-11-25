@@ -1,0 +1,21 @@
+{
+  "user": "مهدی اسماعیلی",
+  "username": "Po6465",
+  "checkedFromDate": "1405/07/01",
+  "executionTimestamp": "2026-11-18T20:13:43.674Z",
+  "noArrivalRecords": [],
+  "dischargedRecords": [
+    {
+      "trackingCode": "KV3ZERU83",
+      "creationDate": "1405/08/17",
+      "dischargeDateSet": "1405/08/18",
+      "reportType": "خروجی وارداتی (Import Exit)",
+      "status": "تایید تخلیه ثبت شد"
+    }
+  ],
+  "stats": {
+    "totalDischarged": 1,
+    "totalNoArrival": 0,
+    "totalChecked": 1
+  }
+}

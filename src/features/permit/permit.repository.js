@@ -31,6 +31,27 @@ class PermitRepository {
         return codes;
     }
 
+    static addCandidateCodesIfNew(candidateCodes) {
+        if (!Array.isArray(candidateCodes) || candidateCodes.length === 0) {
+            return this.getTrackingCodes();
+        }
+        const codes = this.getTrackingCodes();
+        const existingSet = new Set(codes.map((c) => String(c).trim()));
+        let hasNew = false;
+        for (let i = candidateCodes.length - 1; i >= 0; i--) {
+            const clean = String(candidateCodes[i] || '').trim();
+            if (clean && !existingSet.has(clean)) {
+                codes.unshift(clean);
+                existingSet.add(clean);
+                hasNew = true;
+            }
+        }
+        if (hasNew) {
+            this.saveTrackingCodes(codes);
+        }
+        return codes;
+    }
+
     static deleteTrackingCode(code) {
         const clean = (code || '').trim();
         const codes = this.getTrackingCodes();
